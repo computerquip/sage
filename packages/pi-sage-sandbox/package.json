@@ -1,0 +1,15 @@
+{
+  "name": "pi-sage-sandbox",
+  "private": true,
+  "version": "0.1.0",
+  "description": "pi extension that routes read/write/edit/bash tool calls into a gondolin micro-VM (sage)",
+  "type": "module",
+  "main": "index.ts",
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/gondolin": "*"
+  },
+  "engines": {
+    "node": ">=23.6.0"
+  }
+}

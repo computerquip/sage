@@ -1,0 +1,19 @@
+#!/usr/bin/env sh
+# Thin launcher: sets up env and execs pi with the sage sandbox extension.
+#
+# Usable standalone (cd into a repo, run `sage`) and invoked by the herdr
+# plugin (herdr-plugin/bin/new-session.sh).
+set -eu
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+SAGE_HOME="${SAGE_HOME:-$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)}"
+
+export SAGE_HOME
+export SAGE_IMAGE_DIR="${SAGE_IMAGE_DIR:-$SAGE_HOME/.gondolin-image}"
+
+if ! command -v pi >/dev/null 2>&1; then
+  echo "error: 'pi' not found on PATH" >&2
+  exit 1
+fi
+
+exec pi -e "$SAGE_HOME/packages/pi-sage-sandbox/index.ts" "$@"

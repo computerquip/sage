@@ -1,0 +1,34 @@
+{
+  "arch": "x86_64",
+  "distro": "alpine",
+  "alpine": {
+    "rootfsPackages": [
+      "linux-virt",
+      "rng-tools",
+      "bash",
+      "ca-certificates",
+      "curl",
+      "e2fsprogs",
+      "git",
+      "openssh",
+      "build-base",
+      "nodejs",
+      "npm",
+      "python3",
+      "py3-pip",
+      "uv"
+    ]
+  },
+  "env": {
+    "PATH": "/root/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+  },
+  "postBuild": {
+    "commands": [
+      "npm install -g pnpm",
+      "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal",
+      "ln -sf /root/.cargo/bin/rustc /usr/local/bin/rustc",
+      "ln -sf /root/.cargo/bin/cargo /usr/local/bin/cargo",
+      "ln -sf /root/.cargo/bin/rustup /usr/local/bin/rustup"
+    ]
+  }
+}

@@ -1,0 +1,4 @@
+node_modules/
+.gondolin-image/
+*.log
+.DS_Store

@@ -1,0 +1,12 @@
+{
+  "name": "sage",
+  "private": true,
+  "version": "0.1.0",
+  "description": "herdr + pi + gondolin sandboxed autonomous agent setup",
+  "engines": {
+    "node": ">=23.6.0"
+  },
+  "scripts": {
+    "build:image": "sh image/build.sh"
+  }
+}

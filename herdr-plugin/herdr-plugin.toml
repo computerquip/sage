@@ -1,0 +1,13 @@
+id = "sage.sandbox"
+name = "Sage Sandboxed Agent"
+version = "0.1.0"
+min_herdr_version = "0.7.0"
+description = "Spin up a git worktree + gondolin-sandboxed pi session"
+platforms = ["linux", "macos"]
+
+[[actions]]
+id = "new-session"
+title = "New sandboxed pi session"
+contexts = ["workspace"]
+command = ["bin/new-session.sh"]
+platforms = ["linux", "macos"]
