@@ -10,19 +10,16 @@ See the design doc for the full rationale, architecture, and network model:
 
 ## Status
 
-This is a from-scratch scaffold. It has **not** been run end-to-end yet — the
-build/dev machine used to author it does not have `pnpm`, `herdr`, `pi`,
-`gondolin`, or QEMU installed. Everything here is structurally complete and
-syntax-checked (JSON validated, shell scripts passed `bash -n`, TypeScript
-passed `node --experimental-strip-types --check`), but treat Phase 1–5 below
-as unverified until run against a real toolchain.
+Toolchain installed and the custom guest image builds and boots
+successfully (x86_64, AlmaLinux host, nested KVM acceleration via
+`--vmm qemu`). Verified inside the guest: `git`, `node`, `python3`, `rustc`,
+`cargo`, `pnpm` all resolve and run. A live `pi` session with tool calls
+routed into the VM was previously verified against the Kilo pi provider
+(see git history); it has not yet been re-run on this host (no provider
+auth configured here).
 
 Known open items (see plan doc "Risks / open questions" for more):
 
-- `@earendil-works/pi-coding-agent` and `@earendil-works/gondolin` are
-  declared as `"*"` in `packages/pi-sage-sandbox/package.json` — pin real
-  versions once you know where these packages are published (npm registry
-  name/scope was not confirmed).
 - `herdr-plugin/bin/new-session.sh` guesses the JSON field name returned by
   `herdr worktree create --json` (tries `.id`, `.workspace_id`,
   `.workspace.id`). Run it once against your installed herdr and fix the `jq`
@@ -30,6 +27,22 @@ Known open items (see plan doc "Risks / open questions" for more):
 - `image/build-config.json` sets `"arch": "x86_64"` (matches this authoring
   machine). **Re-check `uname -m` on whatever machine actually runs
   `gondolin build`** — a mismatched arch means the VM won't boot.
+- RHEL/AlmaLinux's `qemu-kvm` package ships no `microvm` machine type (only
+  `pc`/`q35`), so `gondolin`'s default machine-type selection breaks on
+  these hosts even with KVM available — set
+  `SAGE_QEMU_MACHINE_TYPE=q35`.
+- gondolin's built-in rootfs init mounts a fresh `tmpfs` over `/root` (and
+  `/tmp`, `/var/tmp`, `/var/cache`, `/var/log`) on every VM boot for a clean
+  ephemeral home per session. Anything baked into `/root` during
+  `image/build.sh` (e.g. a `rustup`-installed toolchain under
+  `/root/.cargo`) is invisible at runtime. Install language toolchains via
+  apk packages instead (see `rust`/`cargo` in `build-config.json`) or point
+  `CARGO_HOME`/`RUSTUP_HOME` outside `/root`.
+- `image/build.sh` requires either root privileges (to chroot for
+  `postBuild.commands`) or a container runtime (`container.force: true` +
+  `container.runtime: "podman"` in the config) — run it via `sudo` or set
+  those fields, since gondolin only auto-detects `docker`/`podman` and
+  otherwise expects root.
 
 ## Prerequisites
 
