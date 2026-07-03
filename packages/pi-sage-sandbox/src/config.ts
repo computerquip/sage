@@ -8,6 +8,7 @@
  * egress model") for the rationale behind each setting.
  */
 
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -29,7 +30,7 @@ export function resolveImageDir(): string | undefined {
   // sage/packages/pi-sage-sandbox/src/config.ts -> sage/.gondolin-image
   const repoRoot = path.resolve(import.meta.dirname, "..", "..", "..");
   const defaultDir = path.join(repoRoot, ".gondolin-image");
-  return defaultDir;
+  return fs.existsSync(defaultDir) ? defaultDir : undefined;
 }
 
 /** HTTP/HTTPS egress: wide open by default (curl, npm/pip/cargo, https git). */
