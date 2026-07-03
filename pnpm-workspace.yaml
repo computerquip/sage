@@ -1,2 +1,12 @@
 packages:
   - "packages/*"
+# Build scripts pnpm ignores by default (see `pnpm approve-builds`).
+# ssh2/cpu-features are gondolin's SSH-git egress client deps (relevant to
+# Sage); allowed so ssh2 gets its native crypto acceleration instead of a
+# pure-JS fallback. protobufjs/@google/genai come from pi's optional Google
+# Gemini provider support, unused by Sage, so left disabled.
+allowBuilds:
+  ssh2: true
+  cpu-features: true
+  protobufjs: false
+  '@google/genai': false

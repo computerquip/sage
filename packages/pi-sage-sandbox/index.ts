@@ -38,6 +38,7 @@ import {
   resolveAllowedHttpHosts,
   resolveImageDir,
   resolveKnownHostsFile,
+  resolveMachineType,
   resolveSshAgentPath,
   resolveSshAllowedHosts,
 } from "./src/config.js";
@@ -79,8 +80,12 @@ export default function (pi: ExtensionAPI) {
       const sshHosts = resolveSshAllowedHosts();
       const sshAgent = resolveSshAgentPath();
 
+      const machineType = resolveMachineType();
       const created = await VM.create({
-        sandbox: imagePath ? { imagePath } : undefined,
+        sandbox:
+          imagePath || machineType
+            ? { ...(imagePath ? { imagePath } : {}), ...(machineType ? { machineType } : {}) }
+            : undefined,
         vfs: {
           mounts: {
             [GUEST_WORKSPACE]: new RealFSProvider(localCwd),

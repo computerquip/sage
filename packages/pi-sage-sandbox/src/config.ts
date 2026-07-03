@@ -57,3 +57,14 @@ export function resolveSshAgentPath(): string | undefined {
 export function resolveKnownHostsFile(): string {
   return path.join(os.homedir(), ".ssh", "known_hosts");
 }
+
+/**
+ * QEMU machine type override. gondolin defaults to "microvm", which some
+ * distro QEMU builds omit (e.g. RHEL/AlmaLinux's qemu-kvm package only
+ * ships pc/q35 machine types — confirmed via
+ * `qemu-system-x86_64 -machine help`). Set SAGE_QEMU_MACHINE_TYPE=q35 (or
+ * pc) on those hosts. Leave unset to use gondolin's default.
+ */
+export function resolveMachineType(): string | undefined {
+  return process.env.SAGE_QEMU_MACHINE_TYPE || undefined;
+}
