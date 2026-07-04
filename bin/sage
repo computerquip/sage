@@ -126,6 +126,7 @@ Environment:
   SAGE_HOME                sage install directory
   SAGE_AGENT_NAME          agent name override; default is sage-<timestamp>
   SAGE_QEMU_MACHINE_TYPE   QEMU machine override; default is q35
+  SAGE_VM_MEMORY           outer VM memory size; default is 1G
   SAGE_RELEASE_REPO        GitHub repo for image releases; default computerquip/sage
   SAGE_IMAGE_VERSION       GitHub release tag; default latest
   SAGE_IMAGE_INSTALL_DIR   install directory; default is user cache

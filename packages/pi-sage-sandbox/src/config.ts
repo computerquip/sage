@@ -88,3 +88,12 @@ export function resolveKnownHostsFile(): string {
 export function resolveMachineType(): string | undefined {
   return process.env.SAGE_QEMU_MACHINE_TYPE || undefined;
 }
+
+/**
+ * Gondolin VM memory size for this Sage session. Keep normal sessions small
+ * by default so multiple worktrees can run on modest hosts. Nested VM tests
+ * need the outer Sage VM to be larger than the inner VM.
+ */
+export function resolveVmMemory(): string {
+  return process.env.SAGE_VM_MEMORY || "1G";
+}

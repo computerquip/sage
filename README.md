@@ -199,6 +199,10 @@ Env vars (all optional):
 - `SAGE_QEMU_MACHINE_TYPE` — QEMU machine-type override. `bin/sage` defaults
   this to `q35`; unset or override it if your host supports
   gondolin's default machine type.
+- `SAGE_VM_MEMORY` — outer Gondolin VM memory size in QEMU syntax (default
+  `1G`). For nested VM experiments, make the outer VM larger than the inner
+  VM, e.g. run the outer Sage session with `SAGE_VM_MEMORY=2G` for an inner
+  1GB VM.
 
 ## Tearing down a session
 

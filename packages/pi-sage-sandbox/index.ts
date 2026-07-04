@@ -41,6 +41,7 @@ import {
   resolveMachineType,
   resolveSshAgentPath,
   resolveSshAllowedHosts,
+  resolveVmMemory,
 } from "./src/config.js";
 import {
   createGondolinBashOps,
@@ -82,7 +83,9 @@ export default function (pi: ExtensionAPI) {
       const sshAgent = resolveSshAgentPath();
 
       const machineType = resolveMachineType();
+      const memory = resolveVmMemory();
       const created = await VM.create({
+        memory,
         sandbox:
           imagePath || machineType
             ? { ...(imagePath ? { imagePath } : {}), ...(machineType ? { machineType } : {}) }
