@@ -74,11 +74,14 @@ usage() {
 usage:
   sage [pi args...]        create a new sage worktree and start a sandboxed pi agent
   sage list|sessions       list live sage agents known to Herdr
+  sage attach [target]     attach to a live Sage agent; defaults to newest
   sage install-image       download the prebuilt gondolin image
   sage update-image        same as install-image
 
-Attach with:
-  herdr agent attach <name|pane_id|workspace_id>
+Attach targets:
+  latest                   newest live Sage agent (default)
+  <number>                 index from sage list
+  <name|pane_id|workspace_id>
 
 Environment:
   SAGE_HOME                sage install directory
@@ -104,8 +107,8 @@ list_sessions() {
       | if length == 0 then
           "No live sage agents found."
         else
-          (["NAME", "TARGET", "STATUS", "WORKSPACE", "CWD"] | @tsv),
-          (.[] | [.name, .pane_id, .agent_status, .workspace_id, .cwd] | @tsv)
+          (["#", "NAME", "TARGET", "STATUS", "WORKSPACE", "CWD"] | @tsv),
+          (to_entries[] | [(.key + 1), .value.name, .value.pane_id, .value.agent_status, .value.workspace_id, .value.cwd] | @tsv)
         end
     ' | column -t -s "$(printf '\t')"
   else
@@ -115,11 +118,52 @@ list_sessions() {
       | if length == 0 then
           "No live sage agents found."
         else
-          (["NAME", "TARGET", "STATUS", "WORKSPACE", "CWD"] | @tsv),
-          (.[] | [.name, .pane_id, .agent_status, .workspace_id, .cwd] | @tsv)
+          (["#", "NAME", "TARGET", "STATUS", "WORKSPACE", "CWD"] | @tsv),
+          (to_entries[] | [(.key + 1), .value.name, .value.pane_id, .value.agent_status, .value.workspace_id, .value.cwd] | @tsv)
         end
     '
   fi
+}
+
+attach_session() {
+  need_cmd jq
+  ensure_herdr_server
+
+  target="${1:-latest}"
+  AGENTS_JSON=$("$HERDR" agent list)
+
+  if [ "$target" = "latest" ]; then
+    resolved=$(printf '%s' "$AGENTS_JSON" | jq -r '
+      .result.agents
+      | map(select((.name | startswith("sage")) or (.cwd | contains("/.herdr/worktrees/"))))
+      | if length == 0 then empty else .[-1].pane_id end
+    ')
+  else
+    case "$target" in
+      *[!0-9]*)
+        resolved="$target"
+        ;;
+      *)
+        resolved=$(printf '%s' "$AGENTS_JSON" | jq -r --argjson idx "$target" '
+          .result.agents
+          | map(select((.name | startswith("sage")) or (.cwd | contains("/.herdr/worktrees/"))))
+          | .[$idx - 1].pane_id // empty
+        ')
+        if [ -z "$resolved" ]; then
+          echo "sage: no live Sage agent at index $target" >&2
+          exit 1
+        fi
+        ;;
+    esac
+  fi
+
+  if [ -z "$resolved" ]; then
+    echo "sage: no live Sage agents found" >&2
+    exit 1
+  fi
+
+  echo "sage: attaching to $resolved" >&2
+  exec "$HERDR" agent attach "$resolved"
 }
 
 image_arch() {
@@ -222,6 +266,14 @@ case "${1:-}" in
     fi
     list_sessions
     exit 0
+    ;;
+  attach)
+    shift
+    if [ "$#" -gt 1 ]; then
+      echo "sage: attach accepts at most one target" >&2
+      exit 2
+    fi
+    attach_session "${1:-latest}"
     ;;
   install-image|update-image)
     shift

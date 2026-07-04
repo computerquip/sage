@@ -141,7 +141,9 @@ sage/
 
    ```sh
    sage list
-   herdr agent attach <name-or-target>
+   sage attach        # newest live Sage agent
+   sage attach 2      # index from sage list
+   sage attach w5:p2  # explicit Herdr target
    ```
 
 7. Wire up the herdr plugin for local dev:
