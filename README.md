@@ -1,9 +1,11 @@
 # sage
 
 herdr manages sandboxed agent sessions; each session runs `pi` on the host
-with every tool call (read/write/edit/bash/`!`) routed into a disposable
-[gondolin](https://gondolin.dev) micro-VM. Because every dangerous action
-executes inside the sandbox, pi can be run fully auto-approved.
+with read/write/edit/bash/`!` tool calls routed into a disposable
+[gondolin](https://gondolin.dev) micro-VM. Sage also provides a `web_fetch`
+tool that fetches HTTP(S) URLs through the same VM network policy. Because
+every dangerous action executes inside the sandbox, pi can be run fully
+auto-approved.
 
 See the design doc for the full rationale, architecture, and network model:
 `~/.local/share/kilo/plans/sage-sandboxed-agent.md`.
@@ -14,7 +16,8 @@ Toolchain installed and the custom guest image builds and boots
 successfully (x86_64, AlmaLinux host, nested KVM acceleration via
 `--vmm qemu`). The image includes git, SSH, Node/npm/pnpm, Python/pip/uv,
 Rust/cargo, GCC/G++, Clang/LLVM/lld, CMake, Ninja, Conan, pkgconf, gdb, and
-autotools/libtool. A live `pi` session routes tool calls into the VM.
+autotools/libtool. A live `pi` session routes filesystem/shell tool calls and
+web fetches through the VM.
 
 Known open items (see plan doc "Risks / open questions" for more):
 

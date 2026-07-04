@@ -48,6 +48,7 @@ import {
   createGondolinReadOps,
   createGondolinWriteOps,
 } from "./src/gondolin-ops.js";
+import { createWebFetchTool } from "./src/web-fetch.js";
 
 export default function (pi: ExtensionAPI) {
   const localCwd = process.cwd();
@@ -192,6 +193,8 @@ export default function (pi: ExtensionAPI) {
       return tool.execute(id, params, signal, onUpdate);
     },
   });
+
+  pi.registerTool(createWebFetchTool((ctx) => ensureVm(ctx)));
 
   // Run user `!` commands inside the VM too.
   pi.on("user_bash", (_event, _ctx) => {
