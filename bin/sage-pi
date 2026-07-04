@@ -1,0 +1,33 @@
+#!/usr/bin/env sh
+# Thin pi launcher used by sage-managed Herdr agents.
+#
+# Usable standalone for debugging, but the normal user-facing command is
+# `sage`.
+set -eu
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+SAGE_HOME="${SAGE_HOME:-$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)}"
+
+export SAGE_HOME
+if [ -z "${SAGE_IMAGE_DIR:-}" ]; then
+  if [ -n "${SAGE_CACHE_DIR:-}" ]; then
+    DEFAULT_SAGE_IMAGE_DIR="$SAGE_CACHE_DIR/gondolin-image"
+  elif [ -n "${XDG_CACHE_HOME:-}" ]; then
+    DEFAULT_SAGE_IMAGE_DIR="$XDG_CACHE_HOME/sage/gondolin-image"
+  elif [ -n "${HOME:-}" ]; then
+    DEFAULT_SAGE_IMAGE_DIR="$HOME/.cache/sage/gondolin-image"
+  else
+    DEFAULT_SAGE_IMAGE_DIR="$SAGE_HOME/.gondolin-image"
+  fi
+
+  if [ -d "$DEFAULT_SAGE_IMAGE_DIR" ]; then
+    export SAGE_IMAGE_DIR="$DEFAULT_SAGE_IMAGE_DIR"
+  fi
+fi
+
+if ! command -v pi >/dev/null 2>&1; then
+  echo "error: 'pi' not found on PATH" >&2
+  exit 1
+fi
+
+exec pi -e "$SAGE_HOME/packages/pi-sage-sandbox/index.ts" "$@"

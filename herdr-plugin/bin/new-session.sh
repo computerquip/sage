@@ -19,4 +19,4 @@ set -euo pipefail
 PLUGIN_ROOT="${HERDR_PLUGIN_ROOT:-$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)}"
 export SAGE_HOME="${SAGE_HOME:-$(CDPATH= cd -- "$PLUGIN_ROOT/.." && pwd)}"
 
-exec "$SAGE_HOME/bin/sage-session"
+exec "$SAGE_HOME/bin/sage"

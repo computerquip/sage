@@ -18,10 +18,6 @@ autotools/libtool. A live `pi` session routes tool calls into the VM.
 
 Known open items (see plan doc "Risks / open questions" for more):
 
-- `herdr-plugin/bin/new-session.sh` guesses the JSON field name returned by
-  `herdr worktree create --json` (tries `.id`, `.workspace_id`,
-  `.workspace.id`). Run it once against your installed herdr and fix the `jq`
-  filter if none of those match.
 - `image/build-config.json` sets `"arch": "x86_64"` (matches this authoring
   machine). **Re-check `uname -m` on whatever machine actually runs
   `gondolin build`** — a mismatched arch means the VM won't boot.
@@ -72,7 +68,9 @@ sage/
 ├─ herdr-plugin/
 │  ├─ herdr-plugin.toml        # manifest: "new-session" action
 │  └─ bin/new-session.sh       # worktree create + launch sandboxed pi
-└─ bin/sage                    # thin launcher (standalone or via plugin)
+├─ bin/sage                    # user-facing session manager
+├─ bin/sage-pi                 # thin pi launcher used by managed agents
+└─ bin/sage-session            # deprecated compatibility wrapper
 ```
 
 ## Setup
@@ -83,9 +81,10 @@ sage/
    ./install.sh
    ```
 
-   This links `~/.local/bin/sage` to `bin/sage-session` in this checkout and
-   installs Node dependencies if `node_modules` is absent. Ensure
-   `~/.local/bin` is on `PATH`.
+   This links `~/.local/bin/sage` to `bin/sage` in this checkout, keeps
+   `~/.local/bin/sage-session` as a deprecated compatibility alias when it
+   can do so safely, and installs Node dependencies if `node_modules` is
+   absent. Ensure `~/.local/bin` is on `PATH`.
 
 2. Install workspace deps manually if you skipped `install.sh`:
 
@@ -197,8 +196,8 @@ Env vars (all optional):
 - `SAGE_HOME` — repo root, auto-detected from script location if unset.
 - `SAGE_AGENT_NAME` — Herdr agent name override (default:
   `sage-<timestamp>`).
-- `SAGE_QEMU_MACHINE_TYPE` — QEMU machine-type override. `bin/sage-session`
-  defaults this to `q35`; unset or override it if your host supports
+- `SAGE_QEMU_MACHINE_TYPE` — QEMU machine-type override. `bin/sage` defaults
+  this to `q35`; unset or override it if your host supports
   gondolin's default machine type.
 
 ## Tearing down a session

@@ -5,7 +5,8 @@ set -eu
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 PREFIX="${PREFIX:-$HOME/.local}"
 BIN_DIR="${BIN_DIR:-$PREFIX/bin}"
-TARGET="$BIN_DIR/sage"
+SAGE_TARGET="$BIN_DIR/sage"
+SAGE_SESSION_TARGET="$BIN_DIR/sage-session"
 
 need_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -36,21 +37,41 @@ fi
 
 mkdir -p "$BIN_DIR"
 
-chmod +x "$SCRIPT_DIR/bin/sage" "$SCRIPT_DIR/bin/sage-session" "$SCRIPT_DIR/image/build.sh" "$SCRIPT_DIR/image/package-release.sh"
+chmod +x "$SCRIPT_DIR/bin/sage" "$SCRIPT_DIR/bin/sage-pi" "$SCRIPT_DIR/bin/sage-session" "$SCRIPT_DIR/image/build.sh" "$SCRIPT_DIR/image/package-release.sh"
 
-if [ -e "$TARGET" ] && [ ! -L "$TARGET" ]; then
-  if [ "${SAGE_INSTALL_OVERWRITE:-}" = "1" ]; then
-    BACKUP="$TARGET.bak.$(date +%Y%m%d-%H%M%S)"
-    mv "$TARGET" "$BACKUP"
-    echo "install: moved existing $TARGET to $BACKUP"
-  else
-    echo "install: refusing to replace non-symlink $TARGET" >&2
-    echo "install: rerun with SAGE_INSTALL_OVERWRITE=1 to move it aside" >&2
-    exit 1
+install_link() {
+  target="$1"
+  source="$2"
+
+  if [ -e "$target" ] && [ ! -L "$target" ]; then
+    if [ "${SAGE_INSTALL_OVERWRITE:-}" = "1" ]; then
+      BACKUP="$target.bak.$(date +%Y%m%d-%H%M%S)"
+      mv "$target" "$BACKUP"
+      echo "install: moved existing $target to $BACKUP"
+    else
+      echo "install: refusing to replace non-symlink $target" >&2
+      echo "install: rerun with SAGE_INSTALL_OVERWRITE=1 to move it aside" >&2
+      exit 1
+    fi
   fi
-fi
 
-ln -sfn "$SCRIPT_DIR/bin/sage-session" "$TARGET"
+  ln -sfn "$source" "$target"
+}
+
+install_link "$SAGE_TARGET" "$SCRIPT_DIR/bin/sage"
+
+if [ -e "$SAGE_SESSION_TARGET" ] && [ ! -L "$SAGE_SESSION_TARGET" ]; then
+  if [ "${SAGE_INSTALL_OVERWRITE:-}" = "1" ]; then
+    BACKUP="$SAGE_SESSION_TARGET.bak.$(date +%Y%m%d-%H%M%S)"
+    mv "$SAGE_SESSION_TARGET" "$BACKUP"
+    echo "install: moved existing $SAGE_SESSION_TARGET to $BACKUP"
+    ln -sfn "$SAGE_TARGET" "$SAGE_SESSION_TARGET"
+  else
+    echo "install: leaving existing non-symlink $SAGE_SESSION_TARGET alone" >&2
+  fi
+else
+  ln -sfn "$SAGE_TARGET" "$SAGE_SESSION_TARGET"
+fi
 
 if [ ! -d "$SCRIPT_DIR/node_modules" ]; then
   echo "install: installing Node dependencies with pnpm"
@@ -58,7 +79,8 @@ if [ ! -d "$SCRIPT_DIR/node_modules" ]; then
 fi
 
 cat <<EOF
-installed: $TARGET -> $SCRIPT_DIR/bin/sage-session
+installed: $SAGE_TARGET -> $SCRIPT_DIR/bin/sage
+compat:   $SAGE_SESSION_TARGET -> $SAGE_TARGET
 
 Next steps:
   1. Ensure $BIN_DIR is on PATH.
