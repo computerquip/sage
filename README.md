@@ -14,10 +14,11 @@ See the design doc for the full rationale, architecture, and network model:
 
 Toolchain installed and the custom guest image builds and boots
 successfully (x86_64, AlmaLinux host, nested KVM acceleration via
-`--vmm qemu`). The image includes git, SSH, Node/npm/pnpm, Python/pip/uv,
-Rust/cargo, GCC/G++, Clang/LLVM/lld, CMake, Ninja, Conan, pkgconf, gdb, and
-autotools/libtool. A live `pi` session routes filesystem/shell tool calls and
-web fetches through the VM.
+`--vmm qemu`). The image includes git, SSH, jq, QEMU tooling,
+Node/npm/pnpm, pi/gondolin CLIs, Python/pip/uv, Rust/cargo, GCC/G++,
+Clang/LLVM/lld, CMake, Ninja, Conan, pkgconf, gdb, and autotools/libtool. A
+live `pi` session routes filesystem/shell tool calls and web fetches through
+the VM.
 
 Known open items (see plan doc "Risks / open questions" for more):
 
@@ -35,11 +36,9 @@ Known open items (see plan doc "Risks / open questions" for more):
   `/root/.cargo`) is invisible at runtime. Install language toolchains via
   apk packages instead (see `rust`/`cargo` in `build-config.json`) or point
   `CARGO_HOME`/`RUSTUP_HOME` outside `/root`.
-- `image/build.sh` requires either root privileges (to chroot for
-  `postBuild.commands`) or a container runtime (`container.force: true` +
-  `container.runtime: "podman"` in the config) — run it via `sudo` or set
-  those fields, since gondolin only auto-detects `docker`/`podman` and
-  otherwise expects root.
+- `image/build.sh` uses Gondolin's Podman container build path so
+  `postBuild.commands` can run without `sudo`. Rootless Podman must be usable
+  on the host.
 
 ## Prerequisites
 
@@ -49,8 +48,8 @@ Known open items (see plan doc "Risks / open questions" for more):
 - [herdr](https://herdr.dev) (`curl -fsSL https://herdr.dev/install.sh | sh`)
   + `herdr integration install pi`.
 - [pi](https://github.com/earendil-works) installed and on `PATH`.
-- Image build tools: `lz4`, `cpio`, `e2fsprogs` (Docker/Podman only needed for
-  OCI/cross-arch builds).
+- Image builds: rootless Podman usable by the current user. The build runs
+  inside a container because `postBuild.commands` need chroot-like privileges.
 - A running **ssh-agent** with `SSH_AUTH_SOCK` set and your git key loaded,
   plus the target git host(s) in `~/.ssh/known_hosts` (for SSH-git egress).
   Without this, HTTP(S) tool calls still work but SSH git remotes won't.
@@ -108,7 +107,8 @@ sage/
    Override with `SAGE_RELEASE_REPO`, `SAGE_IMAGE_VERSION`,
    `SAGE_IMAGE_URL`, or `SAGE_IMAGE_SHA256_URL`.
 
-4. Or build the custom guest image locally (bakes in git/node/python/rust/C++):
+4. Or build the custom guest image locally (bakes in git/node/python/rust/C++,
+   pi/gondolin, jq, and QEMU tooling):
 
    ```sh
    ./image/build.sh
@@ -119,6 +119,8 @@ sage/
    ```sh
    GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- git --version
    GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- node --version
+   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- pi --version
+   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- gondolin help
    GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- rustc --version
    GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- cargo --version
    GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- pnpm --version
@@ -126,6 +128,9 @@ sage/
    GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- ninja --version
    GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- clang --version
    GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- conan --version
+   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- qemu-system-x86_64 --version
+   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- qemu-img --version
+   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- jq --version
    ```
 
 5. Try it in any git repo:

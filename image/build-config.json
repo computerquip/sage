@@ -1,6 +1,10 @@
 {
   "arch": "x86_64",
   "distro": "alpine",
+  "container": {
+    "force": true,
+    "runtime": "podman"
+  },
   "alpine": {
     "version": "3.23.0",
     "rootfsPackages": [
@@ -11,6 +15,7 @@
       "curl",
       "e2fsprogs",
       "git",
+      "jq",
       "openssh",
       "build-base",
       "gcc",
@@ -29,6 +34,8 @@
       "libtool",
       "nodejs",
       "npm",
+      "qemu-img",
+      "qemu-system-x86_64",
       "python3",
       "py3-pip",
       "uv",
@@ -38,7 +45,7 @@
   },
   "postBuild": {
     "commands": [
-      "npm install -g pnpm",
+      "npm install -g pnpm @earendil-works/pi-coding-agent @earendil-works/gondolin",
       "pip install --break-system-packages conan"
     ]
   }
