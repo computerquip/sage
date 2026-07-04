@@ -107,7 +107,7 @@ export default function (pi: ExtensionAPI) {
 
       if (!sshAgent) {
         ctx?.ui.notify(
-          "SSH_AUTH_SOCK not set on host — SSH-git egress disabled for this VM (HTTPS git still works).",
+          "SSH_AUTH_SOCK missing or stale on host — SSH-git egress disabled for this VM (HTTPS git still works).",
           "warning",
         );
       }

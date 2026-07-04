@@ -64,7 +64,8 @@ export function resolveSshAllowedHosts(): string[] {
 }
 
 export function resolveSshAgentPath(): string | undefined {
-  return process.env.SSH_AUTH_SOCK;
+  const sock = process.env.SSH_AUTH_SOCK;
+  return sock && fs.existsSync(sock) ? sock : undefined;
 }
 
 export function resolveKnownHostsFile(): string {

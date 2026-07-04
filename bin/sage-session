@@ -319,12 +319,22 @@ for arg in "$@"; do
 done
 
 set +e
-if [ "$has_provider" = false ]; then
-  AGENT_JSON=$("$HERDR" agent start "$AGENT_NAME" --workspace "$WS_ID" --cwd "$WT_PATH" -- "$SAGE_HOME/bin/sage" --provider openai-codex "$@")
-  AGENT_STATUS=$?
+if [ -n "${SSH_AUTH_SOCK:-}" ]; then
+  if [ "$has_provider" = false ]; then
+    AGENT_JSON=$("$HERDR" agent start "$AGENT_NAME" --workspace "$WS_ID" --cwd "$WT_PATH" --env "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" -- "$SAGE_HOME/bin/sage" --provider openai-codex "$@")
+    AGENT_STATUS=$?
+  else
+    AGENT_JSON=$("$HERDR" agent start "$AGENT_NAME" --workspace "$WS_ID" --cwd "$WT_PATH" --env "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" -- "$SAGE_HOME/bin/sage" "$@")
+    AGENT_STATUS=$?
+  fi
 else
-  AGENT_JSON=$("$HERDR" agent start "$AGENT_NAME" --workspace "$WS_ID" --cwd "$WT_PATH" -- "$SAGE_HOME/bin/sage" "$@")
-  AGENT_STATUS=$?
+  if [ "$has_provider" = false ]; then
+    AGENT_JSON=$("$HERDR" agent start "$AGENT_NAME" --workspace "$WS_ID" --cwd "$WT_PATH" -- "$SAGE_HOME/bin/sage" --provider openai-codex "$@")
+    AGENT_STATUS=$?
+  else
+    AGENT_JSON=$("$HERDR" agent start "$AGENT_NAME" --workspace "$WS_ID" --cwd "$WT_PATH" -- "$SAGE_HOME/bin/sage" "$@")
+    AGENT_STATUS=$?
+  fi
 fi
 set -e
 
