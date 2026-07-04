@@ -12,11 +12,9 @@ See the design doc for the full rationale, architecture, and network model:
 
 Toolchain installed and the custom guest image builds and boots
 successfully (x86_64, AlmaLinux host, nested KVM acceleration via
-`--vmm qemu`). Verified inside the guest: `git`, `node`, `python3`, `rustc`,
-`cargo`, `pnpm` all resolve and run. A live `pi` session with tool calls
-routed into the VM was previously verified against the Kilo pi provider
-(see git history); it has not yet been re-run on this host (no provider
-auth configured here).
+`--vmm qemu`). The image includes git, SSH, Node/npm/pnpm, Python/pip/uv,
+Rust/cargo, GCC/G++, Clang/LLVM/lld, CMake, Ninja, Conan, pkgconf, gdb, and
+autotools/libtool. A live `pi` session routes tool calls into the VM.
 
 Known open items (see plan doc "Risks / open questions" for more):
 
@@ -111,7 +109,7 @@ sage/
    Override with `SAGE_RELEASE_REPO`, `SAGE_IMAGE_VERSION`,
    `SAGE_IMAGE_URL`, or `SAGE_IMAGE_SHA256_URL`.
 
-4. Or build the custom guest image locally (bakes in git/node/python/rust):
+4. Or build the custom guest image locally (bakes in git/node/python/rust/C++):
 
    ```sh
    ./image/build.sh
@@ -124,6 +122,11 @@ sage/
    GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- node --version
    GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- rustc --version
    GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- cargo --version
+   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- pnpm --version
+   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- cmake --version
+   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- ninja --version
+   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- clang --version
+   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- conan --version
    ```
 
 5. Try it in any git repo:

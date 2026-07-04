@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# Builds the sage custom gondolin guest image (git/node/python/rust baked in).
+# Builds the sage custom gondolin guest image (git/node/python/rust/C++ baked in).
 #
 # Usage:
 #   ./image/build.sh [output-dir]
@@ -32,3 +32,7 @@ echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec -- python3 --version"
 echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec -- rustc --version"
 echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec -- cargo --version"
 echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec -- pnpm --version"
+echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec -- cmake --version"
+echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec -- ninja --version"
+echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec -- clang --version"
+echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec -- conan --version"

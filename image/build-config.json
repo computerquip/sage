@@ -13,6 +13,20 @@
       "git",
       "openssh",
       "build-base",
+      "gcc",
+      "g++",
+      "make",
+      "linux-headers",
+      "pkgconf",
+      "cmake",
+      "ninja",
+      "clang",
+      "llvm",
+      "lld",
+      "gdb",
+      "autoconf",
+      "automake",
+      "libtool",
       "nodejs",
       "npm",
       "python3",
@@ -24,7 +38,8 @@
   },
   "postBuild": {
     "commands": [
-      "npm install -g pnpm"
+      "npm install -g pnpm",
+      "pip install --break-system-packages conan"
     ]
   }
 }
