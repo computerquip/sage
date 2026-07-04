@@ -5,7 +5,14 @@
 # Also lists live Sage agents that Herdr can attach to.
 set -eu
 
-SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+SCRIPT_PATH="$0"
+if command -v readlink >/dev/null 2>&1; then
+  RESOLVED_SCRIPT=$(readlink -f "$SCRIPT_PATH" 2>/dev/null || true)
+  if [ -n "$RESOLVED_SCRIPT" ]; then
+    SCRIPT_PATH="$RESOLVED_SCRIPT"
+  fi
+fi
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$SCRIPT_PATH")" && pwd)
 SAGE_HOME="${SAGE_HOME:-$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)}"
 
 export SAGE_HOME
@@ -259,8 +266,31 @@ for arg in "$@"; do
   fi
 done
 
+set +e
 if [ "$has_provider" = false ]; then
-  exec "$HERDR" agent start "$AGENT_NAME" --workspace "$WS_ID" --cwd "$WT_PATH" -- "$SAGE_HOME/bin/sage" --provider openai-codex "$@"
+  AGENT_JSON=$("$HERDR" agent start "$AGENT_NAME" --workspace "$WS_ID" --cwd "$WT_PATH" -- "$SAGE_HOME/bin/sage" --provider openai-codex "$@")
+  AGENT_STATUS=$?
 else
-  exec "$HERDR" agent start "$AGENT_NAME" --workspace "$WS_ID" --cwd "$WT_PATH" -- "$SAGE_HOME/bin/sage" "$@"
+  AGENT_JSON=$("$HERDR" agent start "$AGENT_NAME" --workspace "$WS_ID" --cwd "$WT_PATH" -- "$SAGE_HOME/bin/sage" "$@")
+  AGENT_STATUS=$?
+fi
+set -e
+
+if [ "$AGENT_STATUS" -ne 0 ]; then
+  echo "$AGENT_JSON" >&2
+  exit "$AGENT_STATUS"
+fi
+
+AGENT_NAME_OUT=$(printf '%s' "$AGENT_JSON" | jq -r '.result.agent.name // empty')
+PANE_ID=$(printf '%s' "$AGENT_JSON" | jq -r '.result.agent.pane_id // empty')
+TERMINAL_ID=$(printf '%s' "$AGENT_JSON" | jq -r '.result.agent.terminal_id // empty')
+
+echo "sage: started ${AGENT_NAME_OUT:-$AGENT_NAME}"
+echo "sage: workspace $WS_ID, pane ${PANE_ID:-unknown}, cwd $WT_PATH"
+if [ -n "$PANE_ID" ]; then
+  echo "sage: attach with: herdr agent attach $PANE_ID"
+elif [ -n "$TERMINAL_ID" ]; then
+  echo "sage: attach with: herdr agent attach $TERMINAL_ID"
+else
+  echo "sage: attach with: herdr agent attach $AGENT_NAME"
 fi
