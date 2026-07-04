@@ -144,7 +144,8 @@ sage/
    sage history       # alias for sage list
    sage attach        # attach newest; starts it first if stopped
    sage attach 2      # attach/resume by list index
-   sage resume 2      # start by list index without attaching
+   sage resume 2      # alias for sage attach 2
+   sage --no-attach   # create/start and print attach command
    sage remove 2      # remove a Sage worktree by list index
    sage remove        # remove the newest Sage worktree
    ```

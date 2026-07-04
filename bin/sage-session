@@ -22,6 +22,12 @@ HERDR="${HERDR_BIN_PATH:-herdr}"
 RUN_ID="$(date +%Y%m%d-%H%M%S)"
 BRANCH="sage/$RUN_ID"
 AGENT_NAME="${SAGE_AGENT_NAME:-sage-$RUN_ID}"
+NO_ATTACH=false
+
+if [ "${1:-}" = "--no-attach" ]; then
+  NO_ATTACH=true
+  shift
+fi
 
 default_image_dir() {
   if [ -n "${SAGE_CACHE_DIR:-}" ]; then
@@ -72,7 +78,8 @@ ensure_herdr_server() {
 usage() {
   cat <<EOF
 usage:
-  sage [pi args...]        create a new sage worktree and start a sandboxed pi agent
+  sage [--no-attach] [pi args...]
+                            create a new sage worktree and start a sandboxed pi agent
   sage list|history        list Sage worktrees for this repo
   sage attach [target]     attach/resume a Sage worktree; defaults to newest
   sage resume [target]     alias for attach
@@ -84,6 +91,9 @@ Attach/remove targets:
   latest                   newest Sage worktree for this repo (default)
   <number>                 index from sage list
   <name|branch|pane_id|workspace_id|path>
+
+Options:
+  --no-attach              start/resume without attaching; print attach command
 
 Environment:
   SAGE_HOME                sage install directory
@@ -309,8 +319,14 @@ resume_session() {
   fi
 
   if [ -n "$pane_id" ]; then
-    echo "sage: $name is already live; attaching to $pane_id" >&2
-    exec "$HERDR" agent attach "$pane_id"
+    if [ "$NO_ATTACH" = true ]; then
+      echo "sage: $name is already live"
+      echo "sage: attach with: herdr agent attach $pane_id"
+      return
+    else
+      echo "sage: $name is already live; attaching to $pane_id" >&2
+      exec "$HERDR" agent attach "$pane_id"
+    fi
   fi
 
   if [ -z "$ws_id" ]; then
@@ -328,6 +344,11 @@ resume_session() {
     start_agent "$ws_id" "$wt_path" "$name" "$@"
   else
     start_agent "$ws_id" "$wt_path" "$name" --continue "$@"
+  fi
+
+  if [ "$NO_ATTACH" = false ] && [ -n "${PANE_ID:-}" ]; then
+    echo "sage: attaching to $PANE_ID" >&2
+    exec "$HERDR" agent attach "$PANE_ID"
   fi
 }
 
@@ -443,6 +464,10 @@ case "${1:-}" in
     ;;
   attach)
     shift
+    if [ "${1:-}" = "--no-attach" ]; then
+      NO_ATTACH=true
+      shift
+    fi
     if [ "$#" -gt 1 ]; then
       echo "sage: attach accepts at most one target" >&2
       exit 2
@@ -451,6 +476,10 @@ case "${1:-}" in
     ;;
   resume)
     shift
+    if [ "${1:-}" = "--no-attach" ]; then
+      NO_ATTACH=true
+      shift
+    fi
     target="${1:-latest}"
     if [ "$#" -gt 0 ]; then
       shift
@@ -503,3 +532,8 @@ fi
 echo "sage: launching sandboxed pi agent in workspace $WS_ID" >&2
 
 start_agent "$WS_ID" "$WT_PATH" "$AGENT_NAME" "$@"
+
+if [ "$NO_ATTACH" = false ] && [ -n "${PANE_ID:-}" ]; then
+  echo "sage: attaching to $PANE_ID" >&2
+  exec "$HERDR" agent attach "$PANE_ID"
+fi
