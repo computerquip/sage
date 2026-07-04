@@ -78,22 +78,51 @@ export function resolveKnownHostsFile(): string {
   return path.join(os.homedir(), ".ssh", "known_hosts");
 }
 
-/**
- * QEMU machine type override. gondolin defaults to "microvm", which some
- * distro QEMU builds omit (e.g. RHEL/AlmaLinux's qemu-kvm package only
- * ships pc/q35 machine types — confirmed via
- * `qemu-system-x86_64 -machine help`). Set SAGE_QEMU_MACHINE_TYPE=q35 (or
- * pc) on those hosts. Leave unset to use gondolin's default.
- */
-export function resolveMachineType(): string | undefined {
-  return process.env.SAGE_QEMU_MACHINE_TYPE || undefined;
+export type SageVmBackend = "qemu" | "krun";
+
+/** VM backend for Sage sandboxes. Default to qemu until krun is reliable. */
+export function resolveVmBackend(): SageVmBackend {
+  const raw = process.env.SAGE_VM_BACKEND || "qemu";
+  if (raw === "qemu" || raw === "krun") return raw;
+  throw new Error(`Unsupported SAGE_VM_BACKEND=${raw}; expected qemu or krun`);
 }
 
 /**
- * Gondolin VM memory size for this Sage session. Keep normal sessions small
- * by default so multiple worktrees can run on modest hosts. Nested VM tests
- * need the outer Sage VM to be larger than the inner VM.
+ * QEMU machine type override. Only applies when SAGE_VM_BACKEND=qemu; krun
+ * rejects qemu-only machine settings.
+ */
+export function resolveQemuMachineType(): string | undefined {
+  return process.env.SAGE_QEMU_MACHINE_TYPE || "q35";
+}
+
+/**
+ * Gondolin VM memory size for Sage sessions. Keep the default small so nested
+ * sessions remain practical on low-memory hosts.
  */
 export function resolveVmMemory(): string {
-  return process.env.SAGE_VM_MEMORY || "1G";
+  return process.env.SAGE_VM_MEMORY || "256M";
+}
+
+export function resolveQemuAccel(): string {
+  return process.env.SAGE_QEMU_ACCEL || "kvm";
+}
+
+export function resolveQemuCpu(): string {
+  return process.env.SAGE_QEMU_CPU || "host";
+}
+
+export function resolveVmCpus(): number {
+  const raw = process.env.SAGE_VM_CPUS || "1";
+  if (!/^[0-9]+$/.test(raw)) {
+    throw new Error(`Unsupported SAGE_VM_CPUS=${raw}; expected a positive integer`);
+  }
+  const cpus = Number.parseInt(raw, 10);
+  if (cpus < 1) {
+    throw new Error(`Unsupported SAGE_VM_CPUS=${raw}; expected a positive integer`);
+  }
+  return cpus;
+}
+
+export function resolveQemuAppend(): string {
+  return process.env.SAGE_QEMU_APPEND || "console=ttyS0 panic=1 reboot=k pci=lastbus=0";
 }

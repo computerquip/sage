@@ -16,7 +16,10 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$SCRIPT_PATH")" && pwd)
 SAGE_HOME="${SAGE_HOME:-$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)}"
 
 export SAGE_HOME
-export SAGE_QEMU_MACHINE_TYPE="${SAGE_QEMU_MACHINE_TYPE:-q35}"
+export SAGE_VM_BACKEND="${SAGE_VM_BACKEND:-qemu}"
+if [ "$SAGE_VM_BACKEND" = "qemu" ]; then
+  export SAGE_QEMU_MACHINE_TYPE="${SAGE_QEMU_MACHINE_TYPE:-q35}"
+fi
 
 if [ "${1:-}" = "__agent" ]; then
   shift
@@ -125,8 +128,13 @@ Options:
 Environment:
   SAGE_HOME                sage install directory
   SAGE_AGENT_NAME          agent name override; default is sage-<timestamp>
-  SAGE_QEMU_MACHINE_TYPE   QEMU machine override; default is q35
-  SAGE_VM_MEMORY           outer VM memory size; default is 1G
+  SAGE_VM_BACKEND          outer VM backend; default is qemu (krun also supported)
+  SAGE_QEMU_MACHINE_TYPE   QEMU machine override when SAGE_VM_BACKEND=qemu; default is q35
+  SAGE_QEMU_ACCEL          QEMU accelerator override; default is kvm
+  SAGE_QEMU_CPU            QEMU CPU model override; default is host
+  SAGE_QEMU_APPEND         QEMU kernel cmdline override
+  SAGE_VM_CPUS             VM vCPU count; default is 1
+  SAGE_VM_MEMORY           VM memory size; default is 256M
   SAGE_RELEASE_REPO        GitHub repo for image releases; default computerquip/sage
   SAGE_IMAGE_VERSION       GitHub release tag; default latest
   SAGE_IMAGE_INSTALL_DIR   install directory; default is user cache

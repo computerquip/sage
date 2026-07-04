@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# Builds the sage custom gondolin guest image (git/node/python/rust/C++/QEMU baked in).
+# Builds the sage custom gondolin guest image (git/node/python/rust/C++/QEMU tools baked in).
 #
 # Usage:
 #   ./image/build.sh [output-dir]
@@ -26,18 +26,18 @@ gondolin build \
   --output "$OUTPUT_DIR"
 
 echo "Done. Verify the toolchain with:"
-echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec -- git --version"
-echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec -- node --version"
-echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec -- pi --version"
-echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec -- gondolin help"
-echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec -- python3 --version"
-echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec -- rustc --version"
-echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec -- cargo --version"
-echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec -- pnpm --version"
-echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec -- cmake --version"
-echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec -- ninja --version"
-echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec -- clang --version"
-echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec -- conan --version"
-echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec -- qemu-system-x86_64 --version"
-echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec -- qemu-img --version"
-echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec -- jq --version"
+echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec --vmm qemu -- git --version"
+echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec --vmm qemu -- node --version"
+echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec --vmm qemu -- pi --version"
+echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec --vmm qemu -- gondolin help"
+echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec --vmm qemu -- python3 --version"
+echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec --vmm qemu -- rustc --version"
+echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec --vmm qemu -- cargo --version"
+echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec --vmm qemu -- pnpm --version"
+echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec --vmm qemu -- cmake --version"
+echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec --vmm qemu -- ninja --version"
+echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec --vmm qemu -- clang --version"
+echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec --vmm qemu -- conan --version"
+echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec --vmm qemu -- qemu-system-x86_64 --version"
+echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec --vmm qemu -- qemu-img --version"
+echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec --vmm qemu -- jq --version"

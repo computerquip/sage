@@ -13,8 +13,8 @@ See the design doc for the full rationale, architecture, and network model:
 ## Status
 
 Toolchain installed and the custom guest image builds and boots
-successfully (x86_64, AlmaLinux host, nested KVM acceleration via
-`--vmm qemu`). The image includes git, SSH, jq, QEMU tooling,
+successfully (x86_64, AlmaLinux host, QEMU/KVM backend). The image includes git,
+SSH, jq, QEMU tooling,
 Node/npm/pnpm, pi/gondolin CLIs, Python/pip/uv, Rust/cargo, GCC/G++,
 Clang/LLVM/lld, CMake, Ninja, Conan, pkgconf, gdb, and autotools/libtool. A
 live `pi` session routes filesystem/shell tool calls and web fetches through
@@ -25,10 +25,12 @@ Known open items (see plan doc "Risks / open questions" for more):
 - `image/build-config.json` sets `"arch": "x86_64"` (matches this authoring
   machine). **Re-check `uname -m` on whatever machine actually runs
   `gondolin build`** — a mismatched arch means the VM won't boot.
-- RHEL/AlmaLinux's `qemu-kvm` package ships no `microvm` machine type (only
-  `pc`/`q35`), so `gondolin`'s default machine-type selection breaks on
-  these hosts even with KVM available — set
-  `SAGE_QEMU_MACHINE_TYPE=q35`.
+- Sage defaults to Gondolin's QEMU backend with the `q35` machine type, KVM
+  acceleration, host CPU model, 1 vCPU, and 256M RAM. Gondolin still launches
+  QEMU with `-nodefaults` and an explicit virtio device set, which keeps the
+  VM close to microVM behavior while avoiding the current libkrun startup
+  failures on Linux x86_64. `SAGE_VM_BACKEND=krun` remains available for
+  comparison once upstream krun support is reliable.
 - gondolin's built-in rootfs init mounts a fresh `tmpfs` over `/root` (and
   `/tmp`, `/var/tmp`, `/var/cache`, `/var/log`) on every VM boot for a clean
   ephemeral home per session. Anything baked into `/root` during
@@ -42,7 +44,7 @@ Known open items (see plan doc "Risks / open questions" for more):
 
 ## Prerequisites
 
-- QEMU (via your package manager).
+- Host support for QEMU/KVM.
 - Node.js ≥ 23.6.0.
 - pnpm, git, jq, curl.
 - [herdr](https://herdr.dev) (`curl -fsSL https://herdr.dev/install.sh | sh`)
@@ -117,20 +119,20 @@ sage/
    Verify the toolchain resolves inside the guest:
 
    ```sh
-   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- git --version
-   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- node --version
-   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- pi --version
-   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- gondolin help
-   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- rustc --version
-   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- cargo --version
-   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- pnpm --version
-   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- cmake --version
-   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- ninja --version
-   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- clang --version
-   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- conan --version
-   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- qemu-system-x86_64 --version
-   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- qemu-img --version
-   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- jq --version
+   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec --vmm qemu -- git --version
+   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec --vmm qemu -- node --version
+   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec --vmm qemu -- pi --version
+   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec --vmm qemu -- gondolin help
+   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec --vmm qemu -- rustc --version
+   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec --vmm qemu -- cargo --version
+   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec --vmm qemu -- pnpm --version
+   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec --vmm qemu -- cmake --version
+   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec --vmm qemu -- ninja --version
+   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec --vmm qemu -- clang --version
+   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec --vmm qemu -- conan --version
+   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec --vmm qemu -- qemu-system-x86_64 --version
+   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec --vmm qemu -- qemu-img --version
+   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec --vmm qemu -- jq --version
    ```
 
 5. Try it in any git repo:
@@ -201,13 +203,17 @@ Env vars (all optional):
 - `SAGE_HOME` — repo root, auto-detected from script location if unset.
 - `SAGE_AGENT_NAME` — Herdr agent name override (default:
   `sage-<timestamp>`).
-- `SAGE_QEMU_MACHINE_TYPE` — QEMU machine-type override. `bin/sage` defaults
-  this to `q35`; unset or override it if your host supports
-  gondolin's default machine type.
-- `SAGE_VM_MEMORY` — outer Gondolin VM memory size in QEMU syntax (default
-  `1G`). For nested VM experiments, make the outer VM larger than the inner
-  VM, e.g. run the outer Sage session with `SAGE_VM_MEMORY=2G` for an inner
-  1GB VM.
+- `SAGE_VM_BACKEND` — Gondolin backend for Sage sandboxes (default `qemu`;
+  `krun` is available for fallback testing).
+- `SAGE_QEMU_MACHINE_TYPE` — QEMU machine-type override when
+  `SAGE_VM_BACKEND=qemu` (default `q35`; use `microvm` on hosts that support
+  it).
+- `SAGE_QEMU_ACCEL` — QEMU accelerator override (default `kvm`).
+- `SAGE_QEMU_CPU` — QEMU CPU model override (default `host`).
+- `SAGE_QEMU_APPEND` — kernel cmdline override (default:
+  `console=ttyS0 panic=1 reboot=k pci=lastbus=0`).
+- `SAGE_VM_CPUS` — VM vCPU count (default `1`).
+- `SAGE_VM_MEMORY` — Gondolin VM memory size (default `256M`).
 
 ## Tearing down a session
 

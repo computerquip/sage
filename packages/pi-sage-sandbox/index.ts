@@ -38,9 +38,14 @@ import {
   resolveAllowedHttpHosts,
   resolveImageDir,
   resolveKnownHostsFile,
-  resolveMachineType,
+  resolveQemuAccel,
+  resolveQemuAppend,
+  resolveQemuCpu,
+  resolveQemuMachineType,
   resolveSshAgentPath,
   resolveSshAllowedHosts,
+  resolveVmBackend,
+  resolveVmCpus,
   resolveVmMemory,
 } from "./src/config.js";
 import {
@@ -82,14 +87,30 @@ export default function (pi: ExtensionAPI) {
       const sshHosts = resolveSshAllowedHosts();
       const sshAgent = resolveSshAgentPath();
 
-      const machineType = resolveMachineType();
-      const memory = resolveVmMemory();
-      const created = await VM.create({
-        memory,
-        sandbox:
-          imagePath || machineType
-            ? { ...(imagePath ? { imagePath } : {}), ...(machineType ? { machineType } : {}) }
-            : undefined,
+      const backend = resolveVmBackend();
+      const machineType = backend === "qemu" ? resolveQemuMachineType() : undefined;
+      const qemuSandboxOptions =
+        backend === "qemu"
+          ? {
+              accel: resolveQemuAccel(),
+              append: resolveQemuAppend(),
+              cpu: resolveQemuCpu(),
+            }
+          : {};
+      const sandbox =
+        imagePath || backend !== "qemu" || machineType || backend === "qemu"
+          ? {
+              ...(imagePath ? { imagePath } : {}),
+              ...(backend !== "qemu" ? { vmm: backend } : {}),
+              ...(machineType ? { machineType } : {}),
+              ...qemuSandboxOptions,
+            }
+          : undefined;
+      const vmOptions = {
+        memory: resolveVmMemory(),
+        cpus: resolveVmCpus(),
+        ...(backend === "krun" ? { rootfs: { mode: "readonly" as const } } : {}),
+        sandbox,
         vfs: {
           mounts: {
             [GUEST_WORKSPACE]: new RealFSProvider(localCwd),
@@ -107,7 +128,8 @@ export default function (pi: ExtensionAPI) {
               knownHostsFile: resolveKnownHostsFile(),
             }
           : undefined,
-      });
+      };
+      const created = await VM.create(vmOptions);
 
       if (!sshAgent) {
         ctx?.ui.notify(
@@ -121,11 +143,11 @@ export default function (pi: ExtensionAPI) {
         "gondolin",
         ctx.ui.theme.fg(
           "accent",
-          `Gondolin: running (${localCwd} -> ${GUEST_WORKSPACE})`,
+          `Gondolin: running via ${backend} (${localCwd} -> ${GUEST_WORKSPACE})`,
         ),
       );
       ctx?.ui.notify(
-        `Gondolin VM ready. Host ${localCwd} mounted at ${GUEST_WORKSPACE}`,
+        `Gondolin ${backend} VM ready. Host ${localCwd} mounted at ${GUEST_WORKSPACE}`,
         "info",
       );
       return created;
@@ -135,7 +157,7 @@ export default function (pi: ExtensionAPI) {
   }
 
   pi.on("session_start", async (_event, ctx) => {
-    // Start eagerly so the user sees errors early (missing qemu, bad image, etc.)
+    // Start eagerly so the user sees errors early (missing backend support, bad image, etc.)
     await ensureVm(ctx);
   });
 
