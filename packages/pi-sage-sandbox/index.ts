@@ -54,6 +54,7 @@ import {
   createGondolinWriteOps,
 } from "./src/gondolin-ops.js";
 import { createWebFetchTool } from "./src/web-fetch.js";
+import { createWebSearchTool } from "./src/web-search.js";
 
 export default function (pi: ExtensionAPI) {
   const localCwd = process.cwd();
@@ -209,6 +210,7 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
+  pi.registerTool(createWebSearchTool((ctx) => ensureVm(ctx)));
   pi.registerTool(createWebFetchTool((ctx) => ensureVm(ctx)));
 
   // Run user `!` commands inside the VM too.
