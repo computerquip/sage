@@ -69,8 +69,7 @@ sage/
 │  ├─ herdr-plugin.toml        # manifest: "new-session" action
 │  └─ bin/new-session.sh       # worktree create + launch sandboxed pi
 ├─ bin/sage                    # user-facing session manager
-├─ bin/sage-pi                 # thin pi launcher used by managed agents
-└─ bin/sage-session            # deprecated compatibility wrapper
+└─ bin/sage-pi                 # thin pi launcher used by managed agents
 ```
 
 ## Setup
@@ -81,10 +80,9 @@ sage/
    ./install.sh
    ```
 
-   This links `~/.local/bin/sage` to `bin/sage` in this checkout, keeps
-   `~/.local/bin/sage-session` as a deprecated compatibility alias when it
-   can do so safely, and installs Node dependencies if `node_modules` is
-   absent. Ensure `~/.local/bin` is on `PATH`.
+   This links `~/.local/bin/sage` to `bin/sage` in this checkout and installs
+   Node dependencies if `node_modules` is absent. Ensure `~/.local/bin` is on
+   `PATH`.
 
 2. Install workspace deps manually if you skipped `install.sh`:
 
