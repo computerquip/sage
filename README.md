@@ -68,8 +68,7 @@ sage/
 ├─ herdr-plugin/
 │  ├─ herdr-plugin.toml        # manifest: "new-session" action
 │  └─ bin/new-session.sh       # worktree create + launch sandboxed pi
-├─ bin/sage                    # user-facing session manager
-└─ bin/sage-pi                 # thin pi launcher used by managed agents
+└─ bin/sage                    # user-facing session manager and internal agent launcher
 ```
 
 ## Setup

@@ -18,6 +18,33 @@ SAGE_HOME="${SAGE_HOME:-$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)}"
 export SAGE_HOME
 export SAGE_QEMU_MACHINE_TYPE="${SAGE_QEMU_MACHINE_TYPE:-q35}"
 
+if [ "${1:-}" = "__agent" ]; then
+  shift
+
+  if [ -z "${SAGE_IMAGE_DIR:-}" ]; then
+    if [ -n "${SAGE_CACHE_DIR:-}" ]; then
+      DEFAULT_SAGE_IMAGE_DIR="$SAGE_CACHE_DIR/gondolin-image"
+    elif [ -n "${XDG_CACHE_HOME:-}" ]; then
+      DEFAULT_SAGE_IMAGE_DIR="$XDG_CACHE_HOME/sage/gondolin-image"
+    elif [ -n "${HOME:-}" ]; then
+      DEFAULT_SAGE_IMAGE_DIR="$HOME/.cache/sage/gondolin-image"
+    else
+      DEFAULT_SAGE_IMAGE_DIR="$SAGE_HOME/.gondolin-image"
+    fi
+
+    if [ -d "$DEFAULT_SAGE_IMAGE_DIR" ]; then
+      export SAGE_IMAGE_DIR="$DEFAULT_SAGE_IMAGE_DIR"
+    fi
+  fi
+
+  if ! command -v pi >/dev/null 2>&1; then
+    echo "error: 'pi' not found on PATH" >&2
+    exit 1
+  fi
+
+  exec pi -e "$SAGE_HOME/packages/pi-sage-sandbox/index.ts" "$@"
+fi
+
 HERDR="${HERDR_BIN_PATH:-herdr}"
 RUN_ID="$(date +%Y%m%d-%H%M%S)"
 BRANCH="sage/$RUN_ID"
@@ -268,10 +295,10 @@ start_agent() {
 
   set +e
   if [ -n "${SSH_AUTH_SOCK:-}" ]; then
-    AGENT_JSON=$("$HERDR" agent start "$agent_name" --workspace "$ws_id" --cwd "$wt_path" --env "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" -- "$SAGE_HOME/bin/sage-pi" "$@")
+    AGENT_JSON=$("$HERDR" agent start "$agent_name" --workspace "$ws_id" --cwd "$wt_path" --env "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" -- "$SAGE_HOME/bin/sage" __agent "$@")
     AGENT_STATUS=$?
   else
-    AGENT_JSON=$("$HERDR" agent start "$agent_name" --workspace "$ws_id" --cwd "$wt_path" -- "$SAGE_HOME/bin/sage-pi" "$@")
+    AGENT_JSON=$("$HERDR" agent start "$agent_name" --workspace "$ws_id" --cwd "$wt_path" -- "$SAGE_HOME/bin/sage" __agent "$@")
     AGENT_STATUS=$?
   fi
   set -e

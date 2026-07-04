@@ -36,7 +36,7 @@ fi
 
 mkdir -p "$BIN_DIR"
 
-chmod +x "$SCRIPT_DIR/bin/sage" "$SCRIPT_DIR/bin/sage-pi" "$SCRIPT_DIR/image/build.sh" "$SCRIPT_DIR/image/package-release.sh"
+chmod +x "$SCRIPT_DIR/bin/sage" "$SCRIPT_DIR/image/build.sh" "$SCRIPT_DIR/image/package-release.sh"
 
 install_link() {
   target="$1"
