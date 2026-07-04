@@ -25,12 +25,11 @@ Known open items (see plan doc "Risks / open questions" for more):
 - `image/build-config.json` sets `"arch": "x86_64"` (matches this authoring
   machine). **Re-check `uname -m` on whatever machine actually runs
   `gondolin build`** — a mismatched arch means the VM won't boot.
-- Sage defaults to Gondolin's QEMU backend with the `q35` machine type, KVM
-  acceleration, host CPU model, 1 vCPU, and 256M RAM. Gondolin still launches
-  QEMU with `-nodefaults` and an explicit virtio device set, which keeps the
-  VM close to microVM behavior while avoiding the current libkrun startup
-  failures on Linux x86_64. `SAGE_VM_BACKEND=krun` remains available for
-  comparison once upstream krun support is reliable.
+- Sage uses Gondolin's QEMU backend with the `q35` machine type, KVM
+  acceleration, host CPU model, 1 vCPU, and 256M RAM. Gondolin launches QEMU
+  with `-nodefaults` and an explicit virtio device set, which keeps the VM
+  close to microVM behavior on hosts whose QEMU packages do not provide the
+  `microvm` machine type.
 - gondolin's built-in rootfs init mounts a fresh `tmpfs` over `/root` (and
   `/tmp`, `/var/tmp`, `/var/cache`, `/var/log`) on every VM boot for a clean
   ephemeral home per session. Anything baked into `/root` during
@@ -203,11 +202,8 @@ Env vars (all optional):
 - `SAGE_HOME` — repo root, auto-detected from script location if unset.
 - `SAGE_AGENT_NAME` — Herdr agent name override (default:
   `sage-<timestamp>`).
-- `SAGE_VM_BACKEND` — Gondolin backend for Sage sandboxes (default `qemu`;
-  `krun` is available for fallback testing).
-- `SAGE_QEMU_MACHINE_TYPE` — QEMU machine-type override when
-  `SAGE_VM_BACKEND=qemu` (default `q35`; use `microvm` on hosts that support
-  it).
+- `SAGE_QEMU_MACHINE_TYPE` — QEMU machine-type override (default `q35`; use
+  `microvm` on hosts that support it).
 - `SAGE_QEMU_ACCEL` — QEMU accelerator override (default `kvm`).
 - `SAGE_QEMU_CPU` — QEMU CPU model override (default `host`).
 - `SAGE_QEMU_APPEND` — kernel cmdline override (default:

@@ -25,6 +25,32 @@ gondolin build \
   --config "$SCRIPT_DIR/build-config.json" \
   --output "$OUTPUT_DIR"
 
+node --input-type=module - "$OUTPUT_DIR" <<'EOF'
+import fs from "node:fs";
+import path from "node:path";
+
+const outputDir = process.argv[2];
+const manifestPath = path.join(outputDir, "manifest.json");
+const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+const keptAssets = new Set(["kernel", "initramfs", "rootfs"]);
+
+for (const [key, relPath] of Object.entries(manifest.assets ?? {})) {
+  if (!keptAssets.has(key) && typeof relPath === "string") {
+    fs.rmSync(path.join(outputDir, relPath), { force: true });
+  }
+}
+
+for (const key of Object.keys(manifest.assets ?? {})) {
+  if (!keptAssets.has(key)) delete manifest.assets[key];
+}
+
+for (const key of Object.keys(manifest.checksums ?? {})) {
+  if (!keptAssets.has(key)) delete manifest.checksums[key];
+}
+
+fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+EOF
+
 echo "Done. Verify the toolchain with:"
 echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec --vmm qemu -- git --version"
 echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec --vmm qemu -- node --version"

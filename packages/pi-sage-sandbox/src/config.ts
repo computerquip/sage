@@ -78,19 +78,7 @@ export function resolveKnownHostsFile(): string {
   return path.join(os.homedir(), ".ssh", "known_hosts");
 }
 
-export type SageVmBackend = "qemu" | "krun";
-
-/** VM backend for Sage sandboxes. Default to qemu until krun is reliable. */
-export function resolveVmBackend(): SageVmBackend {
-  const raw = process.env.SAGE_VM_BACKEND || "qemu";
-  if (raw === "qemu" || raw === "krun") return raw;
-  throw new Error(`Unsupported SAGE_VM_BACKEND=${raw}; expected qemu or krun`);
-}
-
-/**
- * QEMU machine type override. Only applies when SAGE_VM_BACKEND=qemu; krun
- * rejects qemu-only machine settings.
- */
+/** QEMU machine type override. */
 export function resolveQemuMachineType(): string | undefined {
   return process.env.SAGE_QEMU_MACHINE_TYPE || "q35";
 }

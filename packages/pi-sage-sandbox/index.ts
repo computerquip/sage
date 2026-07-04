@@ -44,7 +44,6 @@ import {
   resolveQemuMachineType,
   resolveSshAgentPath,
   resolveSshAllowedHosts,
-  resolveVmBackend,
   resolveVmCpus,
   resolveVmMemory,
 } from "./src/config.js";
@@ -87,29 +86,20 @@ export default function (pi: ExtensionAPI) {
       const sshHosts = resolveSshAllowedHosts();
       const sshAgent = resolveSshAgentPath();
 
-      const backend = resolveVmBackend();
-      const machineType = backend === "qemu" ? resolveQemuMachineType() : undefined;
-      const qemuSandboxOptions =
-        backend === "qemu"
+      const machineType = resolveQemuMachineType();
+      const sandbox =
+        imagePath || machineType
           ? {
+              ...(imagePath ? { imagePath } : {}),
+              ...(machineType ? { machineType } : {}),
               accel: resolveQemuAccel(),
               append: resolveQemuAppend(),
               cpu: resolveQemuCpu(),
-            }
-          : {};
-      const sandbox =
-        imagePath || backend !== "qemu" || machineType || backend === "qemu"
-          ? {
-              ...(imagePath ? { imagePath } : {}),
-              ...(backend !== "qemu" ? { vmm: backend } : {}),
-              ...(machineType ? { machineType } : {}),
-              ...qemuSandboxOptions,
             }
           : undefined;
       const vmOptions = {
         memory: resolveVmMemory(),
         cpus: resolveVmCpus(),
-        ...(backend === "krun" ? { rootfs: { mode: "readonly" as const } } : {}),
         sandbox,
         vfs: {
           mounts: {
@@ -143,11 +133,11 @@ export default function (pi: ExtensionAPI) {
         "gondolin",
         ctx.ui.theme.fg(
           "accent",
-          `Gondolin: running via ${backend} (${localCwd} -> ${GUEST_WORKSPACE})`,
+          `Gondolin: running via qemu (${localCwd} -> ${GUEST_WORKSPACE})`,
         ),
       );
       ctx?.ui.notify(
-        `Gondolin ${backend} VM ready. Host ${localCwd} mounted at ${GUEST_WORKSPACE}`,
+        `Gondolin qemu VM ready. Host ${localCwd} mounted at ${GUEST_WORKSPACE}`,
         "info",
       );
       return created;
@@ -157,7 +147,7 @@ export default function (pi: ExtensionAPI) {
   }
 
   pi.on("session_start", async (_event, ctx) => {
-    // Start eagerly so the user sees errors early (missing backend support, bad image, etc.)
+    // Start eagerly so the user sees errors early (missing QEMU/KVM support, bad image, etc.)
     await ensureVm(ctx);
   });
 
