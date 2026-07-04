@@ -75,10 +75,11 @@ usage:
   sage [pi args...]        create a new sage worktree and start a sandboxed pi agent
   sage list|sessions       list live sage agents known to Herdr
   sage attach [target]     attach to a live Sage agent; defaults to newest
+  sage remove [target]     remove a live Sage worktree; defaults to newest
   sage install-image       download the prebuilt gondolin image
   sage update-image        same as install-image
 
-Attach targets:
+Attach/remove targets:
   latest                   newest live Sage agent (default)
   <number>                 index from sage list
   <name|pane_id|workspace_id>
@@ -125,45 +126,73 @@ list_sessions() {
   fi
 }
 
-attach_session() {
+sage_agents_json() {
   need_cmd jq
   ensure_herdr_server
+  "$HERDR" agent list
+}
 
+resolve_live_agent_field() {
   target="${1:-latest}"
-  AGENTS_JSON=$("$HERDR" agent list)
+  field="$2"
+  agents_json="$3"
 
   if [ "$target" = "latest" ]; then
-    resolved=$(printf '%s' "$AGENTS_JSON" | jq -r '
+    printf '%s' "$agents_json" | jq -r --arg field "$field" '
       .result.agents
       | map(select((.name | startswith("sage")) or (.cwd | contains("/.herdr/worktrees/"))))
-      | if length == 0 then empty else .[-1].pane_id end
-    ')
+      | if length == 0 then empty else .[-1][$field] // empty end
+    '
   else
     case "$target" in
       *[!0-9]*)
-        resolved="$target"
-        ;;
-      *)
-        resolved=$(printf '%s' "$AGENTS_JSON" | jq -r --argjson idx "$target" '
+        printf '%s' "$agents_json" | jq -r --arg target "$target" --arg field "$field" '
           .result.agents
           | map(select((.name | startswith("sage")) or (.cwd | contains("/.herdr/worktrees/"))))
-          | .[$idx - 1].pane_id // empty
-        ')
-        if [ -z "$resolved" ]; then
-          echo "sage: no live Sage agent at index $target" >&2
-          exit 1
-        fi
+          | map(select(.name == $target or .pane_id == $target or .workspace_id == $target or .terminal_id == $target))
+          | if length == 0 then empty else .[0][$field] // empty end
+        '
+        ;;
+      *)
+        printf '%s' "$agents_json" | jq -r --argjson idx "$target" --arg field "$field" '
+          .result.agents
+          | map(select((.name | startswith("sage")) or (.cwd | contains("/.herdr/worktrees/"))))
+          | .[$idx - 1][$field] // empty
+        '
         ;;
     esac
   fi
+}
+
+attach_session() {
+  target="${1:-latest}"
+  AGENTS_JSON=$(sage_agents_json)
+  resolved=$(resolve_live_agent_field "$target" pane_id "$AGENTS_JSON")
 
   if [ -z "$resolved" ]; then
-    echo "sage: no live Sage agents found" >&2
+    echo "sage: no live Sage agent matches '$target'" >&2
     exit 1
   fi
 
   echo "sage: attaching to $resolved" >&2
   exec "$HERDR" agent attach "$resolved"
+}
+
+remove_session() {
+  target="${1:-latest}"
+  AGENTS_JSON=$(sage_agents_json)
+  workspace_id=$(resolve_live_agent_field "$target" workspace_id "$AGENTS_JSON")
+  name=$(resolve_live_agent_field "$target" name "$AGENTS_JSON")
+  pane_id=$(resolve_live_agent_field "$target" pane_id "$AGENTS_JSON")
+
+  if [ -z "$workspace_id" ]; then
+    echo "sage: no live Sage agent matches '$target'" >&2
+    exit 1
+  fi
+
+  echo "sage: removing ${name:-$target} (${pane_id:-unknown}, workspace $workspace_id)" >&2
+  "$HERDR" worktree remove --workspace "$workspace_id" --force --json >/dev/null
+  echo "sage: removed workspace $workspace_id"
 }
 
 image_arch() {
@@ -274,6 +303,15 @@ case "${1:-}" in
       exit 2
     fi
     attach_session "${1:-latest}"
+    ;;
+  remove|rm)
+    shift
+    if [ "$#" -gt 1 ]; then
+      echo "sage: remove accepts at most one target" >&2
+      exit 2
+    fi
+    remove_session "${1:-latest}"
+    exit 0
     ;;
   install-image|update-image)
     shift

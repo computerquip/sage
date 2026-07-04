@@ -144,6 +144,8 @@ sage/
    sage attach        # newest live Sage agent
    sage attach 2      # index from sage list
    sage attach w5:p2  # explicit Herdr target
+   sage remove 2      # remove a live Sage worktree by index
+   sage remove        # remove the newest live Sage worktree
    ```
 
 7. Wire up the herdr plugin for local dev:
