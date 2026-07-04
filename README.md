@@ -48,7 +48,7 @@ Known open items (see plan doc "Risks / open questions" for more):
 
 - QEMU (via your package manager).
 - Node.js ≥ 23.6.0.
-- pnpm, git.
+- pnpm, git, jq, curl.
 - [herdr](https://herdr.dev) (`curl -fsSL https://herdr.dev/install.sh | sh`)
   + `herdr integration install pi`.
 - [pi](https://github.com/earendil-works) installed and on `PATH`.
@@ -79,13 +79,39 @@ sage/
 
 ## Setup
 
-1. Install workspace deps:
+1. Install the `sage` command:
+
+   ```sh
+   ./install.sh
+   ```
+
+   This links `~/.local/bin/sage` to `bin/sage-session` in this checkout and
+   installs Node dependencies if `node_modules` is absent. Ensure
+   `~/.local/bin` is on `PATH`.
+
+2. Install workspace deps manually if you skipped `install.sh`:
 
    ```sh
    pnpm install
    ```
 
-2. Build the custom guest image once (bakes in git/node/python/rust):
+3. Install the prebuilt guest image from GitHub Releases:
+
+   ```sh
+   sage install-image
+   ```
+
+   By default this downloads:
+
+   ```text
+   https://github.com/computerquip/sage/releases/latest/download/sage-gondolin-image-<arch>.tar.gz
+   https://github.com/computerquip/sage/releases/latest/download/sage-gondolin-image-<arch>.tar.gz.sha256
+   ```
+
+   Override with `SAGE_RELEASE_REPO`, `SAGE_IMAGE_VERSION`,
+   `SAGE_IMAGE_URL`, or `SAGE_IMAGE_SHA256_URL`.
+
+4. Or build the custom guest image locally (bakes in git/node/python/rust):
 
    ```sh
    ./image/build.sh
@@ -100,17 +126,25 @@ sage/
    GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec -- cargo --version
    ```
 
-3. Try it standalone in any repo:
+5. Try it in any git repo:
 
    ```sh
    cd /path/to/some/project
-   /path/to/sage/bin/sage
+   sage
    ```
 
-   This boots a gondolin VM, mounts the current directory read-write at
-   `/workspace`, and starts `pi` with tools routed into the VM.
+   This creates a Herdr worktree on a `sage/<timestamp>` branch, starts a
+   sandboxed pi agent inside that worktree, boots a gondolin VM, mounts the
+   worktree read-write at `/workspace`, and routes pi tools into the VM.
 
-4. Wire up the herdr plugin for local dev:
+6. List live Sage sessions:
+
+   ```sh
+   sage list
+   herdr agent attach <name-or-target>
+   ```
+
+7. Wire up the herdr plugin for local dev:
 
    ```sh
    herdr plugin link ./herdr-plugin
@@ -137,11 +171,23 @@ Env vars (all optional):
 
 - `SAGE_IMAGE_DIR` — path to the built gondolin image (default:
   `<repo>/.gondolin-image`).
+- `SAGE_IMAGE_INSTALL_DIR` — where `sage install-image` writes the downloaded
+  image (default: `<repo>/.gondolin-image`).
+- `SAGE_RELEASE_REPO` — GitHub repo containing image release assets (default:
+  `computerquip/sage`).
+- `SAGE_IMAGE_VERSION` — GitHub release tag to download (default: `latest`).
+- `SAGE_IMAGE_URL` / `SAGE_IMAGE_SHA256_URL` — explicit download URL
+  overrides.
 - `SAGE_HTTP_ALLOWED_HOSTS` — comma-separated HTTP/HTTPS allowlist (default
   `*`).
 - `SAGE_SSH_HOSTS` — comma-separated SSH-git allowlist (default
   `github.com`).
 - `SAGE_HOME` — repo root, auto-detected from script location if unset.
+- `SAGE_AGENT_NAME` — Herdr agent name override (default:
+  `sage-<timestamp>`).
+- `SAGE_QEMU_MACHINE_TYPE` — QEMU machine-type override. `bin/sage-session`
+  defaults this to `q35`; unset or override it if your host supports
+  gondolin's default machine type.
 
 ## Tearing down a session
 
@@ -156,3 +202,23 @@ This runs `git worktree remove` on the checkout; it never deletes the branch.
 The worktree is a normal git branch checkout — merge it like any other
 branch (`git merge sage/<timestamp>`, or open a PR) once the sandboxed agent
 is done.
+
+## Publishing an image release
+
+Build and package the image:
+
+```sh
+./image/build.sh
+./image/package-release.sh
+```
+
+This creates:
+
+```text
+dist/sage-gondolin-image-<arch>.tar.gz
+dist/sage-gondolin-image-<arch>.tar.gz.sha256
+```
+
+Upload both files to a GitHub Release. `sage install-image` downloads the
+matching architecture asset and verifies the SHA256 file before replacing the
+local image directory.

@@ -1,0 +1,244 @@
+#!/usr/bin/env sh
+# User-facing Sage session manager.
+#
+# Creates a Herdr git worktree and starts the sandboxed pi launcher inside it.
+# Also lists live Sage agents that Herdr can attach to.
+set -eu
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+SAGE_HOME="${SAGE_HOME:-$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)}"
+
+export SAGE_HOME
+export SAGE_QEMU_MACHINE_TYPE="${SAGE_QEMU_MACHINE_TYPE:-q35}"
+
+HERDR="${HERDR_BIN_PATH:-herdr}"
+RUN_ID="$(date +%Y%m%d-%H%M%S)"
+BRANCH="sage/$RUN_ID"
+AGENT_NAME="${SAGE_AGENT_NAME:-sage-$RUN_ID}"
+
+need_cmd() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "sage: required command not found on PATH: $1" >&2
+    exit 127
+  fi
+}
+
+herdr_server_running() {
+  [ "$("$HERDR" status server 2>/dev/null | sed -n '1p')" = "status: running" ]
+}
+
+ensure_herdr_server() {
+  if herdr_server_running; then
+    return
+  fi
+
+  if command -v setsid >/dev/null 2>&1; then
+    nohup setsid "$HERDR" server >/tmp/sage-herdr-server.log 2>&1 </dev/null &
+  else
+    nohup "$HERDR" server >/tmp/sage-herdr-server.log 2>&1 </dev/null &
+  fi
+
+  i=0
+  while ! herdr_server_running; do
+    i=$((i + 1))
+    if [ "$i" -ge 50 ]; then
+      echo "sage: timed out waiting for herdr server to start" >&2
+      echo "sage: see /tmp/sage-herdr-server.log" >&2
+      exit 1
+    fi
+    sleep 0.1
+  done
+}
+
+usage() {
+  cat <<EOF
+usage:
+  sage [pi args...]        create a new sage worktree and start a sandboxed pi agent
+  sage list|sessions       list live sage agents known to Herdr
+  sage install-image       download the prebuilt gondolin image
+  sage update-image        same as install-image
+
+Attach with:
+  herdr agent attach <name|pane_id|workspace_id>
+
+Environment:
+  SAGE_HOME                sage install directory
+  SAGE_AGENT_NAME          agent name override; default is sage-<timestamp>
+  SAGE_QEMU_MACHINE_TYPE   QEMU machine override; default is q35
+  SAGE_RELEASE_REPO        GitHub repo for image releases; default computerquip/sage
+  SAGE_IMAGE_VERSION       GitHub release tag; default latest
+  SAGE_IMAGE_URL           explicit image archive URL override
+  SAGE_IMAGE_SHA256_URL    explicit sha256 URL override
+EOF
+}
+
+list_sessions() {
+  need_cmd jq
+  ensure_herdr_server
+
+  if command -v column >/dev/null 2>&1; then
+    "$HERDR" agent list | jq -r '
+      .result.agents
+      | map(select((.name | startswith("sage")) or (.cwd | contains("/.herdr/worktrees/"))))
+      | if length == 0 then
+          "No live sage agents found."
+        else
+          (["NAME", "TARGET", "STATUS", "WORKSPACE", "CWD"] | @tsv),
+          (.[] | [.name, .pane_id, .agent_status, .workspace_id, .cwd] | @tsv)
+        end
+    ' | column -t -s "$(printf '\t')"
+  else
+    "$HERDR" agent list | jq -r '
+      .result.agents
+      | map(select((.name | startswith("sage")) or (.cwd | contains("/.herdr/worktrees/"))))
+      | if length == 0 then
+          "No live sage agents found."
+        else
+          (["NAME", "TARGET", "STATUS", "WORKSPACE", "CWD"] | @tsv),
+          (.[] | [.name, .pane_id, .agent_status, .workspace_id, .cwd] | @tsv)
+        end
+    '
+  fi
+}
+
+image_arch() {
+  case "$(uname -m)" in
+    x86_64|amd64)
+      printf '%s\n' x86_64
+      ;;
+    aarch64|arm64)
+      printf '%s\n' aarch64
+      ;;
+    *)
+      echo "sage: unsupported image architecture: $(uname -m)" >&2
+      exit 1
+      ;;
+  esac
+}
+
+install_image() {
+  need_cmd curl
+  need_cmd tar
+  need_cmd mktemp
+
+  arch=$(image_arch)
+  repo="${SAGE_RELEASE_REPO:-computerquip/sage}"
+  version="${SAGE_IMAGE_VERSION:-latest}"
+  asset="sage-gondolin-image-$arch.tar.gz"
+
+  if [ -n "${SAGE_IMAGE_URL:-}" ]; then
+    image_url="$SAGE_IMAGE_URL"
+  elif [ "$version" = "latest" ]; then
+    image_url="https://github.com/$repo/releases/latest/download/$asset"
+  else
+    image_url="https://github.com/$repo/releases/download/$version/$asset"
+  fi
+
+  if [ -n "${SAGE_IMAGE_SHA256_URL:-}" ]; then
+    sha_url="$SAGE_IMAGE_SHA256_URL"
+  else
+    sha_url="$image_url.sha256"
+  fi
+
+  image_dir="${SAGE_IMAGE_INSTALL_DIR:-$SAGE_HOME/.gondolin-image}"
+  tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/sage-image.XXXXXX")
+  trap 'rm -rf "$tmp_dir"' EXIT HUP INT TERM
+
+  echo "sage: downloading $image_url" >&2
+  curl -fsSL --retry 3 --output "$tmp_dir/$asset" "$image_url"
+
+  echo "sage: downloading $sha_url" >&2
+  curl -fsSL --retry 3 --output "$tmp_dir/$asset.sha256" "$sha_url"
+
+  (
+    cd "$tmp_dir"
+    if command -v sha256sum >/dev/null 2>&1; then
+      sha256sum -c "$asset.sha256"
+    elif command -v shasum >/dev/null 2>&1; then
+      shasum -a 256 -c "$asset.sha256"
+    else
+      echo "sage: required command not found on PATH: sha256sum or shasum" >&2
+      exit 127
+    fi
+  )
+
+  rm -rf "$tmp_dir/extract"
+  mkdir -p "$tmp_dir/extract"
+  tar -xzf "$tmp_dir/$asset" -C "$tmp_dir/extract"
+
+  if [ ! -f "$tmp_dir/extract/manifest.json" ] || [ ! -f "$tmp_dir/extract/rootfs.ext4" ]; then
+    echo "sage: downloaded image archive does not look like a gondolin image" >&2
+    exit 1
+  fi
+
+  rm -rf "$image_dir.tmp"
+  mkdir -p "$(dirname "$image_dir")"
+  mv "$tmp_dir/extract" "$image_dir.tmp"
+  rm -rf "$image_dir"
+  mv "$image_dir.tmp" "$image_dir"
+
+  echo "sage: installed gondolin image to $image_dir" >&2
+}
+
+case "${1:-}" in
+  -h|--help)
+    usage
+    exit 0
+    ;;
+  list|sessions)
+    shift
+    if [ "$#" -ne 0 ]; then
+      echo "sage: list takes no arguments" >&2
+      exit 2
+    fi
+    list_sessions
+    exit 0
+    ;;
+  install-image|update-image)
+    shift
+    if [ "$#" -ne 0 ]; then
+      echo "sage: install-image takes no arguments" >&2
+      exit 2
+    fi
+    install_image
+    exit 0
+    ;;
+esac
+
+need_cmd "$HERDR"
+need_cmd jq
+ensure_herdr_server
+
+echo "sage: creating worktree on branch $BRANCH" >&2
+
+if [ -n "${HERDR_WORKSPACE_ID:-}" ]; then
+  WS_JSON=$("$HERDR" worktree create --workspace "$HERDR_WORKSPACE_ID" --branch "$BRANCH" --no-focus --json)
+else
+  WS_JSON=$("$HERDR" worktree create --cwd "$PWD" --branch "$BRANCH" --no-focus --json)
+fi
+
+WS_ID=$(printf '%s' "$WS_JSON" | jq -r '.result.workspace.workspace_id // .result.workspace_id // .result.root_pane.workspace_id // .workspace_id // .workspace.id // empty')
+WT_PATH=$(printf '%s' "$WS_JSON" | jq -r '.result.worktree.path // .result.workspace.worktree.checkout_path // empty')
+
+if [ -z "$WS_ID" ] || [ -z "$WT_PATH" ]; then
+  echo "sage: could not extract workspace id or worktree path from 'worktree create --json' output:" >&2
+  echo "$WS_JSON" >&2
+  echo "sage: inspect the JSON above and fix the jq filters in $0" >&2
+  exit 1
+fi
+
+echo "sage: launching sandboxed pi agent in workspace $WS_ID" >&2
+
+has_provider=false
+for arg in "$@"; do
+  if [ "$arg" = "--provider" ]; then
+    has_provider=true
+    break
+  fi
+done
+
+if [ "$has_provider" = false ]; then
+  exec "$HERDR" agent start "$AGENT_NAME" --workspace "$WS_ID" --cwd "$WT_PATH" -- "$SAGE_HOME/bin/sage" --provider openai-codex "$@"
+else
+  exec "$HERDR" agent start "$AGENT_NAME" --workspace "$WS_ID" --cwd "$WT_PATH" -- "$SAGE_HOME/bin/sage" "$@"
+fi
