@@ -137,14 +137,16 @@ sage/
    sandboxed pi agent inside that worktree, boots a gondolin VM, mounts the
    worktree read-write at `/workspace`, and routes pi tools into the VM.
 
-6. List live Sage sessions:
+6. List, attach, resume, or remove Sage sessions:
 
    ```sh
-   sage list
+   sage list          # live Sage agents
+   sage history       # live + stopped Sage worktrees for this repo
    sage attach        # newest live Sage agent
    sage attach 2      # index from sage list
-   sage attach w5:p2  # explicit Herdr target
-   sage remove 2      # remove a live Sage worktree by index
+   sage resume        # newest Sage worktree from sage history
+   sage resume 2      # resume by history index, reusing the same worktree
+   sage remove 2      # remove a live Sage worktree by list index
    sage remove        # remove the newest live Sage worktree
    ```
 
