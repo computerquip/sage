@@ -159,7 +159,23 @@ sage/
    sage remove        # remove the newest Sage worktree
    ```
 
-7. Wire up the herdr plugin for local dev:
+7. Bring work back from a Sage worktree:
+
+   ```sh
+   sage status        # status + diffstat for the newest Sage worktree
+   sage diff          # full diff of newest Sage worktree against current branch
+   sage diff --stat 2 # diffstat for the worktree at sage list index 2
+   sage merge 2       # commit pending Sage edits, then merge branch into cwd
+   sage merge --remove 2 # merge, then remove the Sage worktree
+   sage push 2        # commit pending Sage edits, then push its branch to origin
+   ```
+
+   `sage merge` refuses to run if the current checkout has uncommitted
+   changes, so local work is not mixed with agent output by accident. Set
+   `SAGE_BASE_REF` when `sage diff` should compare against something other
+   than the current branch.
+
+8. Wire up the herdr plugin for local dev:
 
    ```sh
    herdr plugin link ./herdr-plugin

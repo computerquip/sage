@@ -110,11 +110,18 @@ usage:
   sage list|history        list Sage worktrees for this repo
   sage attach [target]     attach/resume a Sage worktree; defaults to newest
   sage resume [target]     alias for attach
+  sage status [target]     show git status for a Sage worktree
+  sage diff [target]       show Sage worktree changes against current branch
+  sage diff --stat [target] show a diffstat instead of a full diff
+  sage merge [target]      commit pending Sage changes, then merge into cwd
+  sage merge --remove [target]
+                            merge, then remove the Sage worktree
+  sage push [target]       commit pending Sage changes, then push its branch
   sage remove [target]     remove a Sage worktree; defaults to newest
   sage install-image       download the prebuilt gondolin image
   sage update-image        same as install-image
 
-Attach/remove targets:
+Session targets:
   latest                   newest Sage worktree for this repo (default)
   <number>                 index from sage list
   <name|branch|pane_id|workspace_id|path>
@@ -131,6 +138,8 @@ Environment:
   SAGE_QEMU_APPEND         QEMU kernel cmdline override
   SAGE_VM_CPUS             VM vCPU count; default is 1
   SAGE_VM_MEMORY           VM memory size; default is 256M
+  SAGE_BASE_REF            base ref for sage diff; default is current branch
+  SAGE_GIT_REMOTE          remote for sage push; default is origin
   SAGE_RELEASE_REPO        GitHub repo for image releases; default computerquip/sage
   SAGE_IMAGE_VERSION       GitHub release tag; default latest
   SAGE_IMAGE_INSTALL_DIR   install directory; default is user cache
@@ -229,6 +238,225 @@ resolve_history_field() {
         ;;
     esac
   fi
+}
+
+resolve_session() {
+  target="${1:-latest}"
+  entries=$(history_entries_json)
+  SESSION_NAME=$(resolve_history_field "$target" name "$entries")
+  SESSION_BRANCH=$(resolve_history_field "$target" branch "$entries")
+  SESSION_PATH=$(resolve_history_field "$target" path "$entries")
+  SESSION_WORKSPACE_ID=$(resolve_history_field "$target" workspace_id "$entries")
+  SESSION_PANE_ID=$(resolve_history_field "$target" pane_id "$entries")
+  SESSION_STATUS=$(resolve_history_field "$target" status "$entries")
+
+  if [ -z "$SESSION_NAME" ] || [ -z "$SESSION_BRANCH" ] || [ -z "$SESSION_PATH" ]; then
+    echo "sage: no Sage worktree matches '$target'" >&2
+    exit 1
+  fi
+}
+
+current_git_branch() {
+  git -C "$PWD" symbolic-ref --quiet --short HEAD 2>/dev/null || true
+}
+
+current_git_ref() {
+  branch=$(current_git_branch)
+  if [ -n "$branch" ]; then
+    printf '%s\n' "$branch"
+  else
+    git -C "$PWD" rev-parse --short HEAD
+  fi
+}
+
+default_base_ref() {
+  session_branch="$1"
+  if [ -n "${SAGE_BASE_REF:-}" ]; then
+    printf '%s\n' "$SAGE_BASE_REF"
+    return
+  fi
+
+  base_ref=$(current_git_ref)
+  if [ "$base_ref" = "$session_branch" ]; then
+    base_ref=$(git -C "$PWD" for-each-ref --format='%(refname:short)' refs/heads/main refs/heads/master | sed -n '1p')
+  fi
+
+  if [ -z "$base_ref" ]; then
+    echo "sage: could not infer a base ref; set SAGE_BASE_REF" >&2
+    exit 1
+  fi
+
+  printf '%s\n' "$base_ref"
+}
+
+ensure_base_ref() {
+  base_ref="$1"
+  wt_path="$2"
+
+  if ! git -C "$wt_path" rev-parse --verify "$base_ref^{commit}" >/dev/null 2>&1; then
+    echo "sage: base ref '$base_ref' does not exist in $wt_path" >&2
+    echo "sage: set SAGE_BASE_REF to compare against a different branch or commit" >&2
+    exit 1
+  fi
+}
+
+ensure_current_checkout_clean() {
+  if [ -n "$(git -C "$PWD" status --porcelain)" ]; then
+    echo "sage: current checkout has uncommitted changes; refusing to merge" >&2
+    git -C "$PWD" status --short >&2
+    exit 1
+  fi
+}
+
+commit_session_changes() {
+  action="$1"
+
+  if [ -z "$(git -C "$SESSION_PATH" status --porcelain)" ]; then
+    return
+  fi
+
+  echo "sage: committing pending changes in $SESSION_NAME before $action" >&2
+  git -C "$SESSION_PATH" add -A
+  if git -C "$SESSION_PATH" diff --cached --quiet; then
+    return
+  fi
+  git -C "$SESSION_PATH" commit -m "Apply Sage changes from $SESSION_NAME"
+}
+
+diff_untracked_files() {
+  diff_args="$1"
+
+  git -C "$SESSION_PATH" ls-files --others --exclude-standard | while IFS= read -r path; do
+    [ -n "$path" ] || continue
+    set +e
+    git -C "$SESSION_PATH" diff --no-index $diff_args -- /dev/null "$path"
+    diff_status=$?
+    set -e
+    if [ "$diff_status" -gt 1 ]; then
+      exit "$diff_status"
+    fi
+  done
+}
+
+status_session() {
+  target="${1:-latest}"
+  resolve_session "$target"
+  base_ref=$(default_base_ref "$SESSION_BRANCH")
+  ensure_base_ref "$base_ref" "$SESSION_PATH"
+
+  echo "sage: $SESSION_NAME"
+  echo "sage: branch $SESSION_BRANCH, base $base_ref"
+  echo "sage: path $SESSION_PATH"
+  if [ -n "$SESSION_PANE_ID" ]; then
+    echo "sage: agent $SESSION_STATUS, attach with: herdr agent attach $SESSION_PANE_ID"
+  else
+    echo "sage: agent $SESSION_STATUS"
+  fi
+  git -C "$SESSION_PATH" status --short --branch
+
+  if ! git -C "$SESSION_PATH" diff --quiet "$base_ref"; then
+    echo "sage: diffstat against $base_ref"
+    git -C "$SESSION_PATH" diff --stat "$base_ref"
+  fi
+  if [ -n "$(git -C "$SESSION_PATH" ls-files --others --exclude-standard)" ]; then
+    echo "sage: untracked files"
+    git -C "$SESSION_PATH" ls-files --others --exclude-standard
+  fi
+}
+
+diff_session() {
+  diff_stat=false
+  target=latest
+  target_set=false
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --stat)
+        diff_stat=true
+        ;;
+      *)
+        if [ "$target_set" = true ]; then
+          echo "sage: diff accepts at most one target" >&2
+          exit 2
+        fi
+        target="$1"
+        target_set=true
+        ;;
+    esac
+    shift
+  done
+
+  resolve_session "$target"
+  base_ref=$(default_base_ref "$SESSION_BRANCH")
+  ensure_base_ref "$base_ref" "$SESSION_PATH"
+
+  if [ "$diff_stat" = true ]; then
+    git -C "$SESSION_PATH" diff --stat "$base_ref"
+    diff_untracked_files "--stat"
+  else
+    git -C "$SESSION_PATH" diff "$base_ref"
+    diff_untracked_files ""
+  fi
+}
+
+merge_session() {
+  remove_after=false
+  target=latest
+  target_set=false
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --remove)
+        remove_after=true
+        ;;
+      *)
+        if [ "$target_set" = true ]; then
+          echo "sage: merge accepts at most one target" >&2
+          exit 2
+        fi
+        target="$1"
+        target_set=true
+        ;;
+    esac
+    shift
+  done
+
+  resolve_session "$target"
+  current_branch=$(current_git_branch)
+  if [ -z "$current_branch" ]; then
+    echo "sage: current checkout is detached; refusing to merge" >&2
+    exit 1
+  fi
+  if [ "$current_branch" = "$SESSION_BRANCH" ]; then
+    echo "sage: already on $SESSION_BRANCH; nothing to merge" >&2
+    exit 1
+  fi
+
+  ensure_current_checkout_clean
+  commit_session_changes "merge"
+
+  echo "sage: merging $SESSION_BRANCH into $current_branch" >&2
+  git -C "$PWD" merge --no-ff "$SESSION_BRANCH"
+
+  if [ "$remove_after" = true ]; then
+    remove_session "$target"
+  fi
+}
+
+push_session() {
+  target="${1:-latest}"
+  remote="${2:-${SAGE_GIT_REMOTE:-origin}}"
+
+  if [ "$#" -gt 2 ]; then
+    echo "sage: push accepts at most target and remote" >&2
+    exit 2
+  fi
+
+  resolve_session "$target"
+  commit_session_changes "push"
+
+  echo "sage: pushing $SESSION_BRANCH to $remote" >&2
+  git -C "$SESSION_PATH" push -u "$remote" "$SESSION_BRANCH"
 }
 
 attach_session() {
@@ -511,6 +739,30 @@ case "${1:-}" in
       shift
     fi
     resume_session "$target" "$@"
+    exit 0
+    ;;
+  status)
+    shift
+    if [ "$#" -gt 1 ]; then
+      echo "sage: status accepts at most one target" >&2
+      exit 2
+    fi
+    status_session "${1:-latest}"
+    exit 0
+    ;;
+  diff)
+    shift
+    diff_session "$@"
+    exit 0
+    ;;
+  merge)
+    shift
+    merge_session "$@"
+    exit 0
+    ;;
+  push)
+    shift
+    push_session "$@"
     exit 0
     ;;
   remove|rm)
