@@ -140,14 +140,13 @@ sage/
 6. List, attach, resume, or remove Sage sessions:
 
    ```sh
-   sage list          # live Sage agents
-   sage history       # live + stopped Sage worktrees for this repo
-   sage attach        # newest live Sage agent
-   sage attach 2      # index from sage list
-   sage resume        # newest Sage worktree from sage history
-   sage resume 2      # resume by history index, reusing the same worktree
-   sage remove 2      # remove a live Sage worktree by list index
-   sage remove        # remove the newest live Sage worktree
+   sage list          # live + stopped Sage worktrees for this repo
+   sage history       # alias for sage list
+   sage attach        # attach newest; starts it first if stopped
+   sage attach 2      # attach/resume by list index
+   sage resume 2      # start by list index without attaching
+   sage remove 2      # remove a Sage worktree by list index
+   sage remove        # remove the newest Sage worktree
    ```
 
 7. Wire up the herdr plugin for local dev:
