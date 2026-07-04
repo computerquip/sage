@@ -2,7 +2,7 @@
 
 herdr manages sandboxed agent sessions; each session runs `pi` on the host
 with read/write/edit/bash/`!` tool calls routed into a disposable
-[gondolin](https://gondolin.dev) micro-VM. Sage also provides a `web_fetch`
+[gondolin](https://gondolin.dev) QEMU VM. Sage also provides a `web_fetch`
 tool that fetches HTTP(S) URLs through the same VM network policy. Because
 every dangerous action executes inside the sandbox, pi can be run fully
 auto-approved.
@@ -28,7 +28,7 @@ Known open items (see plan doc "Risks / open questions" for more):
 - Sage uses Gondolin's QEMU backend with the `q35` machine type, KVM
   acceleration, host CPU model, 1 vCPU, and 256M RAM. Gondolin launches QEMU
   with `-nodefaults` and an explicit virtio device set, which keeps the VM
-  close to microVM behavior on hosts whose QEMU packages do not provide the
+  close to a minimal VM on hosts whose QEMU packages do not provide the
   `microvm` machine type.
 - gondolin's built-in rootfs init mounts a fresh `tmpfs` over `/root` (and
   `/tmp`, `/var/tmp`, `/var/cache`, `/var/log`) on every VM boot for a clean

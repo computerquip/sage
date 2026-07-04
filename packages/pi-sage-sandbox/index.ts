@@ -2,7 +2,7 @@
  * Sage sandbox extension for pi.
  *
  * Routes pi's read/write/edit/bash tools (and user `!` commands) into a
- * disposable gondolin micro-VM, so the agent can be run fully auto-approved
+ * disposable gondolin QEMU VM, so the agent can be run fully auto-approved
  * on the host while every filesystem/process action actually happens inside
  * the sandbox.
  *

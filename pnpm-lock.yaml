@@ -4,6 +4,8 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+pnpmfileChecksum: sha256-pDbFQgdpmhQLPZXyUS+GST2wvRNE2EplLV8WWNimPN8=
+
 importers:
 
   .: {}
@@ -132,18 +134,6 @@ packages:
   '@cto.af/wtf8@0.0.5':
     resolution: {integrity: sha512-LfUFi+Vv4eDzj+XAtR89e3wwjXA/NZjUSwU5NhwbBrLecxPaBYFy3exCuc1j+D4UZeOVdqlsl8G7LmOt18V0tg==}
     engines: {node: '>=20'}
-
-  '@earendil-works/gondolin-krun-runner-darwin-arm64@0.12.0':
-    resolution: {integrity: sha512-ftDlusht4PcT7Y3TuPrZIKrCXy3isiBTVMvlXYK0pcud2uXY6uwFTGeunYgP+8ND/60ddb+MImqbfmkcK8B84A==}
-    cpu: [arm64]
-    os: [darwin]
-    hasBin: true
-
-  '@earendil-works/gondolin-krun-runner-linux-x64@0.12.0':
-    resolution: {integrity: sha512-RRYsgwe2r5ApKmFNy469QgwnyjAHpAs9XANdWpTd9ol4iUYOY3sX7e0xIooAKxd+ktxGI4N/xRWicwGen3D/Ow==}
-    cpu: [x64]
-    os: [linux]
-    hasBin: true
 
   '@earendil-works/gondolin@0.12.0':
     resolution: {integrity: sha512-BXbvzQKb5QmxY5NtthRDONJTu7+IDKbzqWGrJyyNXMP7N681Tx0Q9TK8pK1ba8nUvYQTipNJyGZOsJfYiZll1A==}
@@ -874,21 +864,12 @@ snapshots:
 
   '@cto.af/wtf8@0.0.5': {}
 
-  '@earendil-works/gondolin-krun-runner-darwin-arm64@0.12.0':
-    optional: true
-
-  '@earendil-works/gondolin-krun-runner-linux-x64@0.12.0':
-    optional: true
-
   '@earendil-works/gondolin@0.12.0':
     dependencies:
       cbor2: 2.3.0
       node-forge: 1.4.0
       ssh2: 1.17.0
       undici: 6.27.0
-    optionalDependencies:
-      '@earendil-works/gondolin-krun-runner-darwin-arm64': 0.12.0
-      '@earendil-works/gondolin-krun-runner-linux-x64': 0.12.0
 
   '@earendil-works/pi-agent-core@0.80.3(ws@8.21.0)(zod@4.4.3)':
     dependencies:
