@@ -53,6 +53,7 @@ import {
   createGondolinReadOps,
   createGondolinWriteOps,
 } from "./src/gondolin-ops.js";
+import { createFileSearchTool } from "./src/file-search.js";
 import { createWebFetchTool } from "./src/web-fetch.js";
 import { createWebSearchTool } from "./src/web-search.js";
 
@@ -210,6 +211,7 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
+  pi.registerTool(createFileSearchTool((ctx) => ensureVm(ctx), localCwd));
   pi.registerTool(createWebSearchTool((ctx) => ensureVm(ctx)));
   pi.registerTool(createWebFetchTool((ctx) => ensureVm(ctx)));
 
