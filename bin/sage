@@ -11,16 +11,19 @@ SAGE_HOME="${SAGE_HOME:-$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)}"
 export SAGE_HOME
 if [ -z "${SAGE_IMAGE_DIR:-}" ]; then
   if [ -n "${SAGE_CACHE_DIR:-}" ]; then
-    SAGE_IMAGE_DIR="$SAGE_CACHE_DIR/gondolin-image"
+    DEFAULT_SAGE_IMAGE_DIR="$SAGE_CACHE_DIR/gondolin-image"
   elif [ -n "${XDG_CACHE_HOME:-}" ]; then
-    SAGE_IMAGE_DIR="$XDG_CACHE_HOME/sage/gondolin-image"
+    DEFAULT_SAGE_IMAGE_DIR="$XDG_CACHE_HOME/sage/gondolin-image"
   elif [ -n "${HOME:-}" ]; then
-    SAGE_IMAGE_DIR="$HOME/.cache/sage/gondolin-image"
+    DEFAULT_SAGE_IMAGE_DIR="$HOME/.cache/sage/gondolin-image"
   else
-    SAGE_IMAGE_DIR="$SAGE_HOME/.gondolin-image"
+    DEFAULT_SAGE_IMAGE_DIR="$SAGE_HOME/.gondolin-image"
+  fi
+
+  if [ -d "$DEFAULT_SAGE_IMAGE_DIR" ]; then
+    export SAGE_IMAGE_DIR="$DEFAULT_SAGE_IMAGE_DIR"
   fi
 fi
-export SAGE_IMAGE_DIR
 
 if ! command -v pi >/dev/null 2>&1; then
   echo "error: 'pi' not found on PATH" >&2

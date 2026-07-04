@@ -26,7 +26,10 @@ export const GUEST_WORKSPACE = "/workspace";
  */
 export function resolveImageDir(): string | undefined {
   const configured = process.env.SAGE_IMAGE_DIR;
-  if (configured) return path.resolve(configured);
+  if (configured) {
+    const resolved = path.resolve(configured);
+    return fs.existsSync(resolved) ? resolved : undefined;
+  }
 
   const cacheDir = process.env.SAGE_CACHE_DIR
     ? path.join(process.env.SAGE_CACHE_DIR, "gondolin-image")
