@@ -16,8 +16,9 @@ export const GUEST_WORKSPACE = "/workspace";
 
 /**
  * Directory containing the built gondolin image (manifest.json + kernel +
- * initramfs + rootfs.ext4). Defaults to `.gondolin-image` at the sage repo
- * root; override with SAGE_IMAGE_DIR once `image/build.sh` has been run.
+ * initramfs + rootfs.ext4). Defaults to the user cache, then falls back to
+ * `.gondolin-image` at the sage repo root for local development. Override
+ * with SAGE_IMAGE_DIR.
  *
  * If unset AND the directory doesn't exist, gondolin falls back to its
  * built-in default image (useful for Phase 1 bring-up before the custom
@@ -26,6 +27,15 @@ export const GUEST_WORKSPACE = "/workspace";
 export function resolveImageDir(): string | undefined {
   const configured = process.env.SAGE_IMAGE_DIR;
   if (configured) return path.resolve(configured);
+
+  const cacheDir = process.env.SAGE_CACHE_DIR
+    ? path.join(process.env.SAGE_CACHE_DIR, "gondolin-image")
+    : path.join(
+        process.env.XDG_CACHE_HOME || path.join(os.homedir(), ".cache"),
+        "sage",
+        "gondolin-image",
+      );
+  if (fs.existsSync(cacheDir)) return cacheDir;
 
   // sage/packages/pi-sage-sandbox/src/config.ts -> sage/.gondolin-image
   const repoRoot = path.resolve(import.meta.dirname, "..", "..", "..");

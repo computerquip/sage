@@ -170,9 +170,12 @@ every outbound connection. Sage's policy:
 Env vars (all optional):
 
 - `SAGE_IMAGE_DIR` — path to the built gondolin image (default:
-  `<repo>/.gondolin-image`).
+  `${XDG_CACHE_HOME:-~/.cache}/sage/gondolin-image`; repo-local
+  `.gondolin-image` is still used as a fallback for local development).
 - `SAGE_IMAGE_INSTALL_DIR` — where `sage install-image` writes the downloaded
-  image (default: `<repo>/.gondolin-image`).
+  image (default: `${XDG_CACHE_HOME:-~/.cache}/sage/gondolin-image`).
+- `SAGE_CACHE_DIR` — Sage cache directory used to derive the default image
+  path (default: `${XDG_CACHE_HOME:-~/.cache}/sage`).
 - `SAGE_RELEASE_REPO` — GitHub repo containing image release assets (default:
   `computerquip/sage`).
 - `SAGE_IMAGE_VERSION` — GitHub release tag to download (default: `latest`).

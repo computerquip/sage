@@ -16,6 +16,18 @@ RUN_ID="$(date +%Y%m%d-%H%M%S)"
 BRANCH="sage/$RUN_ID"
 AGENT_NAME="${SAGE_AGENT_NAME:-sage-$RUN_ID}"
 
+default_image_dir() {
+  if [ -n "${SAGE_CACHE_DIR:-}" ]; then
+    printf '%s\n' "$SAGE_CACHE_DIR/gondolin-image"
+  elif [ -n "${XDG_CACHE_HOME:-}" ]; then
+    printf '%s\n' "$XDG_CACHE_HOME/sage/gondolin-image"
+  elif [ -n "${HOME:-}" ]; then
+    printf '%s\n' "$HOME/.cache/sage/gondolin-image"
+  else
+    printf '%s\n' "$SAGE_HOME/.gondolin-image"
+  fi
+}
+
 need_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
     echo "sage: required command not found on PATH: $1" >&2
@@ -67,6 +79,8 @@ Environment:
   SAGE_QEMU_MACHINE_TYPE   QEMU machine override; default is q35
   SAGE_RELEASE_REPO        GitHub repo for image releases; default computerquip/sage
   SAGE_IMAGE_VERSION       GitHub release tag; default latest
+  SAGE_IMAGE_INSTALL_DIR   install directory; default is user cache
+  SAGE_CACHE_DIR           cache directory; default is XDG cache or ~/.cache/sage
   SAGE_IMAGE_URL           explicit image archive URL override
   SAGE_IMAGE_SHA256_URL    explicit sha256 URL override
 EOF
@@ -126,13 +140,12 @@ install_image() {
   version="${SAGE_IMAGE_VERSION:-latest}"
   asset="sage-gondolin-image-$arch.tar.gz"
 
-  if [ -n "${SAGE_IMAGE_URL:-}" ]; then
-    image_url="$SAGE_IMAGE_URL"
-  elif [ "$version" = "latest" ]; then
+  if [ "$version" = "latest" ]; then
     image_url="https://github.com/$repo/releases/latest/download/$asset"
   else
     image_url="https://github.com/$repo/releases/download/$version/$asset"
   fi
+  image_url="${SAGE_IMAGE_URL:-$image_url}"
 
   if [ -n "${SAGE_IMAGE_SHA256_URL:-}" ]; then
     sha_url="$SAGE_IMAGE_SHA256_URL"
@@ -140,15 +153,24 @@ install_image() {
     sha_url="$image_url.sha256"
   fi
 
-  image_dir="${SAGE_IMAGE_INSTALL_DIR:-$SAGE_HOME/.gondolin-image}"
+  image_dir="${SAGE_IMAGE_INSTALL_DIR:-$(default_image_dir)}"
   tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/sage-image.XXXXXX")
   trap 'rm -rf "$tmp_dir"' EXIT HUP INT TERM
 
-  echo "sage: downloading $image_url" >&2
-  curl -fsSL --retry 3 --output "$tmp_dir/$asset" "$image_url"
+  if [ -z "${SAGE_IMAGE_URL:-}" ] && command -v gh >/dev/null 2>&1; then
+    echo "sage: downloading GitHub release assets from $repo ($version)" >&2
+    if [ "$version" = "latest" ]; then
+      gh release download --repo "$repo" --dir "$tmp_dir" --pattern "$asset" --pattern "$asset.sha256" --clobber
+    else
+      gh release download "$version" --repo "$repo" --dir "$tmp_dir" --pattern "$asset" --pattern "$asset.sha256" --clobber
+    fi
+  else
+    echo "sage: downloading $image_url" >&2
+    curl -fsSL --retry 3 --output "$tmp_dir/$asset" "$image_url"
 
-  echo "sage: downloading $sha_url" >&2
-  curl -fsSL --retry 3 --output "$tmp_dir/$asset.sha256" "$sha_url"
+    echo "sage: downloading $sha_url" >&2
+    curl -fsSL --retry 3 --output "$tmp_dir/$asset.sha256" "$sha_url"
+  fi
 
   (
     cd "$tmp_dir"
