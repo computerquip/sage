@@ -25,18 +25,17 @@ architecture.
 
 - `bin/sage`: session lifecycle, Herdr worktree integration, image install,
   and handoff commands (`status`, `diff`, `merge`, `push`, `remove`). It also
-  loads `context-mode` with `pi -e npm:context-mode@1.0.169` and
-  `pi-web-access` with `pi -e npm:pi-web-access@0.13.0`; override with
-  `SAGE_CONTEXT_MODE_PACKAGE` or `SAGE_WEB_ACCESS_PACKAGE` when testing a
-  different package source. Set either variable to an empty string to disable
-  that package for one launch.
+  loads `pi-fff` with `pi -e npm:@ff-labs/pi-fff@0.9.6`, `context-mode` with
+  `pi -e npm:context-mode@1.0.169`, and `pi-web-access` with
+  `pi -e npm:pi-web-access@0.13.0`; override with
+  `SAGE_FILE_SEARCH_PACKAGE`, `SAGE_CONTEXT_MODE_PACKAGE`, or
+  `SAGE_WEB_ACCESS_PACKAGE` when testing a different package source. Set any
+  variable to an empty string to disable that package for one launch.
 - `packages/pi-sage-sandbox/src/config.ts`: image path, QEMU options, VM memory
   and CPU defaults, HTTP/SSH egress policy.
 - `packages/pi-sage-sandbox/src/gondolin-ops.ts`: adapters for pi's filesystem
   and shell tools.
 - `packages/pi-sage-sandbox/src/paths.ts`: host path to `/workspace` mapping.
-- `packages/pi-sage-sandbox/src/file-search.ts`: structured file search and
-  bounded tree tool.
 - `packages/pi-sage-sandbox/src/process-tools.ts`: VM process listing and
   signaling tools.
 - `packages/pi-sage-sandbox/src/instructions.ts`: prompt text injected into
@@ -68,6 +67,10 @@ branch. It refuses to merge if the user's current checkout is dirty.
 
 - Read/write/edit/bash and user `!` commands in pi sessions execute in the
   Gondolin VM. Process tools inspect VM processes, not host processes.
+- Sage registers `pi-fff` for file and content search. Use `fffind` for fuzzy
+  path search, `ffgrep` for content search, and `fff-multi-grep` for OR-logic
+  multi-pattern content search. `pi-fff` runs in the host Pi process and
+  indexes the Sage worktree directly; it does not execute shell commands.
 - Sage registers `pi-web-access` for web tooling. Use `web_search` for URL
   discovery/current information and `fetch_content` for exact page contents.
 - Sage registers `context-mode` for context memory and `ctx_*` tooling. It

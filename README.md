@@ -2,14 +2,18 @@
 
 herdr manages sandboxed agent sessions; each session runs `pi` on the host
 with read/write/edit/bash/`!` tool calls routed into a disposable
-[gondolin](https://gondolin.dev) QEMU VM. Sage also provides `file_search`,
-`process_list`, and `process_signal` tools for structured workspace/process
-inspection. Web access is delegated to
+[gondolin](https://gondolin.dev) QEMU VM. Sage also provides `process_list`
+and `process_signal` tools for structured VM process inspection. File and
+content search are delegated to
+[`@ff-labs/pi-fff`](https://pi.dev/packages/@ff-labs/pi-fff), which registers
+`fffind`, `ffgrep`, and `fff-multi-grep`. Web access is delegated to
 [`pi-web-access`](https://github.com/nicobailon/pi-web-access), which registers
 `web_search` for discovery/current information and `fetch_content` for exact
 HTTP(S) page contents. Sage loads it at agent startup with
 `pi -e npm:pi-web-access@0.13.0`; override that source with
-`SAGE_WEB_ACCESS_PACKAGE` if needed. Sage also loads
+`SAGE_WEB_ACCESS_PACKAGE` if needed. Sage loads `pi-fff` with
+`pi -e npm:@ff-labs/pi-fff@0.9.6`; override or disable it with
+`SAGE_FILE_SEARCH_PACKAGE`. Sage also loads
 [`context-mode`](https://github.com/mksglu/context-mode) with
 `pi -e npm:context-mode@1.0.169` for context memory and `ctx_*` tools; override
 or disable it with `SAGE_CONTEXT_MODE_PACKAGE`. Because every dangerous
@@ -27,8 +31,9 @@ SSH, jq, QEMU tooling,
 Node/npm/pnpm, pi/gondolin CLIs, Python/pip/uv, Rust/cargo, GCC/G++,
 Clang/LLVM/lld, CMake, Ninja, Conan, pkgconf, gdb, and autotools/libtool. A
 live `pi` session routes filesystem/shell tool calls, structured file and
-process inspection through the VM. Web discovery and content extraction are
-provided by `pi-web-access`; context memory is provided by `context-mode`.
+process inspection through the VM. File/content search is provided by
+`pi-fff`; web discovery and content extraction are provided by
+`pi-web-access`; context memory is provided by `context-mode`.
 
 Known open items (see plan doc "Risks / open questions" for more):
 
@@ -54,6 +59,10 @@ Known open items (see plan doc "Risks / open questions" for more):
   scripts for `context-mode` or `better-sqlite3`, its SQLite-backed memory may
   not work until those package scripts are approved or rebuilt in the Pi
   package cache.
+- `pi-fff` runs in the host Pi process and indexes the Sage worktree directly
+  rather than going through the Gondolin VM. That is intentional for fast
+  local file/content search; file mutation and shell execution still go through
+  Sage's VM-routed tools.
 
 ## Prerequisites
 

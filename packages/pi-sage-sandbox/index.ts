@@ -53,7 +53,6 @@ import {
   createGondolinReadOps,
   createGondolinWriteOps,
 } from "./src/gondolin-ops.js";
-import { createFileSearchTool } from "./src/file-search.js";
 import {
   createProcessListTool,
   createProcessSignalTool,
@@ -213,7 +212,6 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
-  pi.registerTool(createFileSearchTool((ctx) => ensureVm(ctx), localCwd));
   pi.registerTool(createProcessListTool((ctx) => ensureVm(ctx)));
   pi.registerTool(createProcessSignalTool((ctx) => ensureVm(ctx)));
 

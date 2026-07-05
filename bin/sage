@@ -43,18 +43,22 @@ if [ "${1:-}" = "__agent" ]; then
   fi
 
   SAGE_SANDBOX_EXTENSION="$SAGE_HOME/packages/pi-sage-sandbox/index.ts"
+  SAGE_FILE_SEARCH_PACKAGE="${SAGE_FILE_SEARCH_PACKAGE-npm:@ff-labs/pi-fff@0.9.6}"
   SAGE_CONTEXT_MODE_PACKAGE="${SAGE_CONTEXT_MODE_PACKAGE-npm:context-mode@1.0.169}"
   SAGE_WEB_ACCESS_PACKAGE="${SAGE_WEB_ACCESS_PACKAGE-npm:pi-web-access@0.13.0}"
 
-  if [ -n "$SAGE_CONTEXT_MODE_PACKAGE" ] && [ -n "$SAGE_WEB_ACCESS_PACKAGE" ]; then
-    exec pi -e "$SAGE_CONTEXT_MODE_PACKAGE" -e "$SAGE_WEB_ACCESS_PACKAGE" -e "$SAGE_SANDBOX_EXTENSION" "$@"
-  elif [ -n "$SAGE_CONTEXT_MODE_PACKAGE" ]; then
-    exec pi -e "$SAGE_CONTEXT_MODE_PACKAGE" -e "$SAGE_SANDBOX_EXTENSION" "$@"
-  elif [ -n "$SAGE_WEB_ACCESS_PACKAGE" ]; then
-    exec pi -e "$SAGE_WEB_ACCESS_PACKAGE" -e "$SAGE_SANDBOX_EXTENSION" "$@"
+  set -- -e "$SAGE_SANDBOX_EXTENSION" "$@"
+  if [ -n "$SAGE_WEB_ACCESS_PACKAGE" ]; then
+    set -- -e "$SAGE_WEB_ACCESS_PACKAGE" "$@"
+  fi
+  if [ -n "$SAGE_CONTEXT_MODE_PACKAGE" ]; then
+    set -- -e "$SAGE_CONTEXT_MODE_PACKAGE" "$@"
+  fi
+  if [ -n "$SAGE_FILE_SEARCH_PACKAGE" ]; then
+    set -- -e "$SAGE_FILE_SEARCH_PACKAGE" "$@"
   fi
 
-  exec pi -e "$SAGE_SANDBOX_EXTENSION" "$@"
+  exec pi "$@"
 fi
 
 HERDR="${HERDR_BIN_PATH:-herdr}"
