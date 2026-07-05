@@ -30,7 +30,9 @@ architecture.
   `pi -e npm:pi-web-access@0.13.0`; override with
   `SAGE_FILE_SEARCH_PACKAGE`, `SAGE_CONTEXT_MODE_PACKAGE`, or
   `SAGE_WEB_ACCESS_PACKAGE` when testing a different package source. Set any
-  variable to an empty string to disable that package for one launch.
+  variable to an empty string to disable that package for one launch. Sage sets
+  `PI_FFF_MODE=override` by default unless the environment already provides a
+  different `PI_FFF_MODE`.
 - `packages/pi-sage-sandbox/src/config.ts`: image path, QEMU options, VM memory
   and CPU defaults, HTTP/SSH egress policy.
 - `packages/pi-sage-sandbox/src/gondolin-ops.ts`: adapters for pi's filesystem
@@ -67,10 +69,11 @@ branch. It refuses to merge if the user's current checkout is dirty.
 
 - Read/write/edit/bash and user `!` commands in pi sessions execute in the
   Gondolin VM. Process tools inspect VM processes, not host processes.
-- Sage registers `pi-fff` for file and content search. Use `fffind` for fuzzy
-  path search, `ffgrep` for content search, and `fff-multi-grep` for OR-logic
-  multi-pattern content search. `pi-fff` runs in the host Pi process and
-  indexes the Sage worktree directly; it does not execute shell commands.
+- Sage registers `pi-fff` for file and content search in override mode by
+  default. Use FFF-backed `find` for fuzzy path search, `grep` for content
+  search, and `multi_grep` for OR-logic multi-pattern content search. `pi-fff`
+  runs in the host Pi process and indexes the Sage worktree directly; it does
+  not execute shell commands.
 - Sage registers `pi-web-access` for web tooling. Use `web_search` for URL
   discovery/current information and `fetch_content` for exact page contents.
 - Sage registers `context-mode` for context memory and `ctx_*` tooling. It

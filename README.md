@@ -6,14 +6,16 @@ with read/write/edit/bash/`!` tool calls routed into a disposable
 and `process_signal` tools for structured VM process inspection. File and
 content search are delegated to
 [`@ff-labs/pi-fff`](https://pi.dev/packages/@ff-labs/pi-fff), which registers
-`fffind`, `ffgrep`, and `fff-multi-grep`. Web access is delegated to
+FFF-backed `find`, `grep`, and `multi_grep` in override mode by default. Web
+access is delegated to
 [`pi-web-access`](https://github.com/nicobailon/pi-web-access), which registers
 `web_search` for discovery/current information and `fetch_content` for exact
 HTTP(S) page contents. Sage loads it at agent startup with
 `pi -e npm:pi-web-access@0.13.0`; override that source with
 `SAGE_WEB_ACCESS_PACKAGE` if needed. Sage loads `pi-fff` with
 `pi -e npm:@ff-labs/pi-fff@0.9.6`; override or disable it with
-`SAGE_FILE_SEARCH_PACKAGE`. Sage also loads
+`SAGE_FILE_SEARCH_PACKAGE`, and override its mode with `PI_FFF_MODE`. Sage also
+loads
 [`context-mode`](https://github.com/mksglu/context-mode) with
 `pi -e npm:context-mode@1.0.169` for context memory and `ctx_*` tools; override
 or disable it with `SAGE_CONTEXT_MODE_PACKAGE`. Because every dangerous
