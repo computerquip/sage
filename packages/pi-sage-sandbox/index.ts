@@ -58,6 +58,7 @@ import {
   createProcessListTool,
   createProcessSignalTool,
 } from "./src/process-tools.js";
+import { buildSageInstructions } from "./src/instructions.js";
 import { createWebFetchTool } from "./src/web-fetch.js";
 import { createWebSearchTool } from "./src/web-search.js";
 
@@ -234,6 +235,10 @@ export default function (pi: ExtensionAPI) {
       `Current working directory: ${localCwd}`,
       `Current working directory: ${GUEST_WORKSPACE} (Gondolin VM, mounted from host: ${localCwd})`,
     );
-    return { systemPrompt: modified };
+    const sageInstructions = buildSageInstructions({
+      guestWorkspace: GUEST_WORKSPACE,
+      hostWorkspace: localCwd,
+    });
+    return { systemPrompt: `${modified}\n\n${sageInstructions}` };
   });
 }
