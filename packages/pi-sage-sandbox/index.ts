@@ -59,7 +59,6 @@ import {
   createProcessSignalTool,
 } from "./src/process-tools.js";
 import { buildSageInstructions } from "./src/instructions.js";
-import { createBedrockWebSearchTool } from "./src/bedrock-web-search.js";
 import { addProviderWebSearch } from "./src/provider-web-search.js";
 import { createWebFetchTool } from "./src/web-fetch.js";
 
@@ -220,7 +219,6 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool(createFileSearchTool((ctx) => ensureVm(ctx), localCwd));
   pi.registerTool(createProcessListTool((ctx) => ensureVm(ctx)));
   pi.registerTool(createProcessSignalTool((ctx) => ensureVm(ctx)));
-  pi.registerTool(createBedrockWebSearchTool());
   pi.registerTool(createWebFetchTool((ctx) => ensureVm(ctx)));
 
   pi.on("before_provider_request", (event) => {

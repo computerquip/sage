@@ -28,16 +28,6 @@ function hasOpenAIWebSearchTool(tools) {
   );
 }
 
-function withoutSageWebSearchFunction(tools) {
-  return tools.filter((tool) => {
-    const objectTool = asObject(tool);
-    return !(
-      objectTool?.type === "function" &&
-      objectTool.name === "web_search"
-    );
-  });
-}
-
 function createOpenAIWebSearchTool() {
   const tool = { type: "web_search" };
   const contextSize = process.env.SAGE_OPENAI_WEB_SEARCH_CONTEXT?.trim();
@@ -62,6 +52,6 @@ export function addProviderWebSearch(payload) {
 
   return {
     ...objectPayload,
-    tools: [...withoutSageWebSearchFunction(tools), createOpenAIWebSearchTool()],
+    tools: [...tools, createOpenAIWebSearchTool()],
   };
 }

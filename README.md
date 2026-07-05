@@ -3,13 +3,11 @@
 herdr manages sandboxed agent sessions; each session runs `pi` on the host
 with read/write/edit/bash/`!` tool calls routed into a disposable
 [gondolin](https://gondolin.dev) QEMU VM. Sage also provides `file_search`,
-`process_list`, `process_signal`, `web_search`, and `web_fetch` tools for
-structured workspace/process inspection, provider-backed web search, and
-HTTP(S) page fetching through the same VM network policy. OpenAI Responses
-requests get OpenAI's hosted `web_search` tool, while Sage's `web_search` tool
-can call an Amazon Bedrock AgentCore Gateway Web Search connector. Because
-every dangerous action executes inside the sandbox, pi can be run fully
-auto-approved.
+`process_list`, `process_signal`, and `web_fetch` tools for structured
+workspace/process inspection and HTTP(S) page fetching through the same VM
+network policy. OpenAI Responses requests get OpenAI's hosted `web_search`
+tool for provider-native discovery. Because every dangerous action executes
+inside the sandbox, pi can be run fully auto-approved.
 
 See the design doc for the full rationale, architecture, and network model:
 `~/.local/share/kilo/plans/sage-sandboxed-agent.md`.
@@ -23,8 +21,7 @@ Node/npm/pnpm, pi/gondolin CLIs, Python/pip/uv, Rust/cargo, GCC/G++,
 Clang/LLVM/lld, CMake, Ninja, Conan, pkgconf, gdb, and autotools/libtool. A
 live `pi` session routes filesystem/shell tool calls, structured file and
 process inspection, and web fetches through the VM. OpenAI Responses requests
-also receive the provider-hosted `web_search` tool, and Bedrock-backed sessions
-can use Sage's `web_search` tool when AgentCore Gateway settings are present.
+also receive the provider-hosted `web_search` tool.
 
 Known open items (see plan doc "Risks / open questions" for more):
 
@@ -46,34 +43,6 @@ Known open items (see plan doc "Risks / open questions" for more):
 - `image/build.sh` uses Gondolin's Podman container build path so
   `postBuild.commands` can run without `sudo`. Rootless Podman must be usable
   on the host.
-
-## Bedrock Web Search
-
-Sage's `web_search` tool uses Amazon Bedrock AgentCore Web Search through a
-Gateway connector. It does not scrape a public search engine.
-
-Create an AgentCore Gateway target with the built-in connector
-`connectorId: "web-search"` and a configuration named `WebSearch`. With the
-target name from the AWS examples, the MCP tool name is
-`web-search-tool___WebSearch`.
-
-Configure Sage with:
-
-```sh
-export SAGE_BEDROCK_AGENTCORE_GATEWAY_URL="https://<gateway>.gateway.bedrock-agentcore.us-east-1.amazonaws.com/mcp"
-export SAGE_BEDROCK_AGENTCORE_ACCESS_TOKEN="<bearer token>"
-```
-
-Or let Sage obtain a client-credentials token:
-
-```sh
-export SAGE_BEDROCK_AGENTCORE_TOKEN_ENDPOINT="https://<cognito-domain>/oauth2/token"
-export SAGE_BEDROCK_AGENTCORE_CLIENT_ID="<client id>"
-export SAGE_BEDROCK_AGENTCORE_CLIENT_SECRET="<client secret>"
-```
-
-If your target name differs, set
-`SAGE_BEDROCK_AGENTCORE_WEB_SEARCH_TOOL="<target>___WebSearch"`.
 
 ## Prerequisites
 
