@@ -25,13 +25,13 @@ architecture.
 
 - `bin/sage`: session lifecycle, Herdr worktree integration, image install,
   and handoff commands (`status`, `diff`, `merge`, `push`, `remove`). It also
-  loads `pi-fff` with `pi -e npm:@ff-labs/pi-fff@0.9.6`, `context-mode` with
-  `pi -e npm:context-mode@1.0.169`, and `pi-web-access` with
-  `pi -e npm:pi-web-access@0.13.0`; override with
-  `SAGE_FILE_SEARCH_PACKAGE`, `SAGE_CONTEXT_MODE_PACKAGE`, or
-  `SAGE_WEB_ACCESS_PACKAGE` when testing a different package source. Set any
-  variable to an empty string to disable that package for one launch. Sage sets
-  `PI_FFF_MODE=override` by default unless the environment already provides a
+  has `install-pi-packages`, which registers `pi-fff`, `context-mode`, and
+  `pi-web-access` as real Pi packages so package skills load. Do not load these
+  packages with `pi -e npm:...`; that only loads extension resources and skips
+  package skills. Override install sources with `SAGE_FILE_SEARCH_PACKAGE`,
+  `SAGE_CONTEXT_MODE_PACKAGE`, or `SAGE_WEB_ACCESS_PACKAGE`; set any variable
+  to an empty string to skip that package install. Sage sets
+  `PI_FFF_MODE=override` at runtime unless the environment already provides a
   different `PI_FFF_MODE`.
 - `packages/pi-sage-sandbox/src/config.ts`: image path, QEMU options, VM memory
   and CPU defaults, HTTP/SSH egress policy.
@@ -95,6 +95,7 @@ Useful checks that have worked in this repo:
 ```sh
 sh -n bin/sage
 ./bin/sage --help
+./bin/sage install-pi-packages
 node --check packages/pi-sage-sandbox/index.ts
 node --check packages/pi-sage-sandbox/src/instructions.ts
 git diff --check

@@ -64,17 +64,27 @@ if [ ! -d "$SCRIPT_DIR/node_modules" ]; then
   (cd "$SCRIPT_DIR" && pnpm install)
 fi
 
+if [ "${SAGE_SKIP_PI_PACKAGE_INSTALL:-}" != "1" ]; then
+  echo "install: installing Sage Pi packages"
+  "$SCRIPT_DIR/bin/sage" install-pi-packages
+else
+  echo "install: skipping Sage Pi package install"
+fi
+
 cat <<EOF
 installed: $SAGE_TARGET -> $SCRIPT_DIR/bin/sage
 
 Next steps:
   1. Ensure $BIN_DIR is on PATH.
-  2. Install the guest image:
+  2. Sage Pi packages were installed unless SAGE_SKIP_PI_PACKAGE_INSTALL=1 was set.
+     Re-run package install with:
+       sage install-pi-packages
+  3. Install the guest image:
        sage install-image
      Or build it locally:
        $SCRIPT_DIR/image/build.sh
-  3. Start a session from a git repo:
+  4. Start a session from a git repo:
        sage
-  4. List live sessions:
+  5. List live sessions:
        sage list
 EOF

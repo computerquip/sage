@@ -18,6 +18,10 @@ SAGE_HOME="${SAGE_HOME:-$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)}"
 export SAGE_HOME
 export SAGE_QEMU_MACHINE_TYPE="${SAGE_QEMU_MACHINE_TYPE:-q35}"
 
+SAGE_FILE_SEARCH_PACKAGE="${SAGE_FILE_SEARCH_PACKAGE-npm:@ff-labs/pi-fff@0.9.6}"
+SAGE_CONTEXT_MODE_PACKAGE="${SAGE_CONTEXT_MODE_PACKAGE-npm:context-mode@1.0.169}"
+SAGE_WEB_ACCESS_PACKAGE="${SAGE_WEB_ACCESS_PACKAGE-npm:pi-web-access@0.13.0}"
+
 if [ "${1:-}" = "__agent" ]; then
   shift
 
@@ -43,24 +47,10 @@ if [ "${1:-}" = "__agent" ]; then
   fi
 
   SAGE_SANDBOX_EXTENSION="$SAGE_HOME/packages/pi-sage-sandbox/index.ts"
-  SAGE_FILE_SEARCH_PACKAGE="${SAGE_FILE_SEARCH_PACKAGE-npm:@ff-labs/pi-fff@0.9.6}"
-  SAGE_CONTEXT_MODE_PACKAGE="${SAGE_CONTEXT_MODE_PACKAGE-npm:context-mode@1.0.169}"
-  SAGE_WEB_ACCESS_PACKAGE="${SAGE_WEB_ACCESS_PACKAGE-npm:pi-web-access@0.13.0}"
 
   export PI_FFF_MODE="${PI_FFF_MODE:-override}"
 
-  set -- -e "$SAGE_SANDBOX_EXTENSION" "$@"
-  if [ -n "$SAGE_WEB_ACCESS_PACKAGE" ]; then
-    set -- -e "$SAGE_WEB_ACCESS_PACKAGE" "$@"
-  fi
-  if [ -n "$SAGE_CONTEXT_MODE_PACKAGE" ]; then
-    set -- -e "$SAGE_CONTEXT_MODE_PACKAGE" "$@"
-  fi
-  if [ -n "$SAGE_FILE_SEARCH_PACKAGE" ]; then
-    set -- -e "$SAGE_FILE_SEARCH_PACKAGE" "$@"
-  fi
-
-  exec pi "$@"
+  exec pi -e "$SAGE_SANDBOX_EXTENSION" "$@"
 fi
 
 HERDR="${HERDR_BIN_PATH:-herdr}"
@@ -136,6 +126,7 @@ usage:
                             merge, then remove the Sage worktree
   sage push [target]       commit pending Sage changes, then push its branch
   sage remove [target]     remove a Sage worktree; defaults to newest
+  sage install-pi-packages install/register Sage's Pi package dependencies
   sage install-image       download the prebuilt gondolin image
   sage update-image        same as install-image
 
@@ -164,7 +155,32 @@ Environment:
   SAGE_CACHE_DIR           cache directory; default is XDG cache or ~/.cache/sage
   SAGE_IMAGE_URL           explicit image archive URL override
   SAGE_IMAGE_SHA256_URL    explicit sha256 URL override
+  SAGE_FILE_SEARCH_PACKAGE Pi package for file/content search; empty skips install
+  SAGE_CONTEXT_MODE_PACKAGE Pi package for context memory; empty skips install
+  SAGE_WEB_ACCESS_PACKAGE  Pi package for web search/fetch; empty skips install
+  PI_FFF_MODE              pi-fff mode for sessions; default is override
 EOF
+}
+
+install_pi_package() {
+  package="$1"
+  label="$2"
+
+  if [ -z "$package" ]; then
+    echo "sage: skipping $label package install (package variable is empty)" >&2
+    return
+  fi
+
+  echo "sage: installing Pi package for $label: $package" >&2
+  pi install "$package"
+}
+
+install_pi_packages() {
+  need_cmd pi
+
+  install_pi_package "$SAGE_FILE_SEARCH_PACKAGE" "file/content search"
+  install_pi_package "$SAGE_CONTEXT_MODE_PACKAGE" "context memory"
+  install_pi_package "$SAGE_WEB_ACCESS_PACKAGE" "web access"
 }
 
 list_sessions() {
@@ -790,6 +806,15 @@ case "${1:-}" in
       exit 2
     fi
     remove_session "${1:-latest}"
+    exit 0
+    ;;
+  install-pi-packages)
+    shift
+    if [ "$#" -ne 0 ]; then
+      echo "sage: install-pi-packages takes no arguments" >&2
+      exit 2
+    fi
+    install_pi_packages
     exit 0
     ;;
   install-image|update-image)

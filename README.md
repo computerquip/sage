@@ -10,17 +10,15 @@ FFF-backed `find`, `grep`, and `multi_grep` in override mode by default. Web
 access is delegated to
 [`pi-web-access`](https://github.com/nicobailon/pi-web-access), which registers
 `web_search` for discovery/current information and `fetch_content` for exact
-HTTP(S) page contents. Sage loads it at agent startup with
-`pi -e npm:pi-web-access@0.13.0`; override that source with
-`SAGE_WEB_ACCESS_PACKAGE` if needed. Sage loads `pi-fff` with
-`pi -e npm:@ff-labs/pi-fff@0.9.6`; override or disable it with
-`SAGE_FILE_SEARCH_PACKAGE`, and override its mode with `PI_FFF_MODE`. Sage also
-loads
+HTTP(S) page contents. `sage install-pi-packages` installs these as real Pi
+packages so package skills load alongside extensions. Override package sources
+with `SAGE_FILE_SEARCH_PACKAGE`, `SAGE_WEB_ACCESS_PACKAGE`, or
+`SAGE_CONTEXT_MODE_PACKAGE`; set a package variable empty to skip installing
+that package. Override `pi-fff` mode with `PI_FFF_MODE`. Sage also uses
 [`context-mode`](https://github.com/mksglu/context-mode) with
-`pi -e npm:context-mode@1.0.169` for context memory and `ctx_*` tools; override
-or disable it with `SAGE_CONTEXT_MODE_PACKAGE`. Because every dangerous
-filesystem and process action executes inside the sandbox, pi can be run fully
-auto-approved.
+`npm:context-mode@1.0.169` for context memory and `ctx_*` tools. Because every
+dangerous filesystem and process action executes inside the sandbox, pi can be
+run fully auto-approved.
 
 See the design doc for the full rationale, architecture, and network model:
 `~/.local/share/kilo/plans/sage-sandboxed-agent.md`.
@@ -108,8 +106,16 @@ sage/
    ```
 
    This links `~/.local/bin/sage` to `bin/sage` in this checkout and installs
-   Node dependencies if `node_modules` is absent. Ensure `~/.local/bin` is on
-   `PATH`.
+   Node dependencies if `node_modules` is absent. It also installs Sage's Pi
+   packages into Pi settings so package extensions and skills are both loaded.
+   Set `SAGE_SKIP_PI_PACKAGE_INSTALL=1` to skip that part. Ensure
+   `~/.local/bin` is on `PATH`.
+
+   To install or refresh only the Pi packages:
+
+   ```sh
+   sage install-pi-packages
+   ```
 
 2. Install workspace deps manually if you skipped `install.sh`:
 
@@ -226,6 +232,13 @@ Env vars (all optional):
 - `SAGE_IMAGE_VERSION` — GitHub release tag to download (default: `latest`).
 - `SAGE_IMAGE_URL` / `SAGE_IMAGE_SHA256_URL` — explicit download URL
   overrides.
+- `SAGE_FILE_SEARCH_PACKAGE` — Pi package source for file/content search
+  (default `npm:@ff-labs/pi-fff@0.9.6`; empty skips `sage install-pi-packages`).
+- `SAGE_CONTEXT_MODE_PACKAGE` — Pi package source for context memory (default
+  `npm:context-mode@1.0.169`; empty skips `sage install-pi-packages`).
+- `SAGE_WEB_ACCESS_PACKAGE` — Pi package source for web tools (default
+  `npm:pi-web-access@0.13.0`; empty skips `sage install-pi-packages`).
+- `PI_FFF_MODE` — `pi-fff` mode for Sage sessions (default `override`).
 - `SAGE_HTTP_ALLOWED_HOSTS` — comma-separated HTTP/HTTPS allowlist (default
   `*`).
 - `SAGE_SSH_HOSTS` — comma-separated SSH-git allowlist (default
