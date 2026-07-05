@@ -84,11 +84,10 @@ export function resolveQemuMachineType(): string | undefined {
 }
 
 /**
- * Gondolin VM memory size for Sage sessions. Keep the default small so nested
- * sessions remain practical on low-memory hosts.
+ * Gondolin VM memory size for Sage sessions.
  */
 export function resolveVmMemory(): string {
-  return process.env.SAGE_VM_MEMORY || "256M";
+  return process.env.SAGE_VM_MEMORY || "1G";
 }
 
 export function resolveQemuAccel(): string {

@@ -16,7 +16,7 @@ architecture.
   worktree path. Edits under `/workspace` persist to the worktree; VM-local
   state outside the mount is ephemeral.
 - Sage intentionally uses Gondolin's QEMU backend with `q35`, KVM, host CPU, 1
-  vCPU, and `256M` memory by default. Avoid reintroducing krun unless the user
+  vCPU, and `1G` memory by default. Avoid reintroducing krun unless the user
   explicitly asks for a new experiment.
 - `sage-session` and `sage-pi` were deprecated/removed. Do not add them back;
   `sage` and `sage __agent` are the supported entry points.
@@ -80,9 +80,8 @@ branch. It refuses to merge if the user's current checkout is dirty.
   binaries are replaced with symlinks to Alpine's `/usr/bin/node`. The
   `web_fetch` runner patches crawl4ai's browser launch args to use
   `/usr/bin/chromium-browser`, avoiding Playwright's `/root` browser cache.
-- crawl4ai launches Chromium; keep the 256M VM default unless the user asks to
-  change it. `engine=crawl4ai` should use a larger `SAGE_VM_MEMORY`; the
-  default `engine=auto` avoids crawl4ai unless `SAGE_WEB_FETCH_AUTO_CRAWL4AI=1`
+- crawl4ai launches Chromium, so Sage defaults to 1G VM memory. The default
+  `engine=auto` still avoids crawl4ai unless `SAGE_WEB_FETCH_AUTO_CRAWL4AI=1`
   is set.
 - HTTP/HTTPS egress is host mediated and defaults to open via
   `SAGE_HTTP_ALLOWED_HOSTS=*`.

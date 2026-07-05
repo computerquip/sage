@@ -31,7 +31,7 @@ Known open items (see plan doc "Risks / open questions" for more):
   machine). **Re-check `uname -m` on whatever machine actually runs
   `gondolin build`** — a mismatched arch means the VM won't boot.
 - Sage uses Gondolin's QEMU backend with the `q35` machine type, KVM
-  acceleration, host CPU model, 1 vCPU, and 256M RAM. Gondolin launches QEMU
+  acceleration, host CPU model, 1 vCPU, and 1G RAM. Gondolin launches QEMU
   with `-nodefaults` and an explicit virtio device set, which keeps the VM
   close to a minimal VM on hosts whose QEMU packages do not provide the
   `microvm` machine type.
@@ -51,10 +51,8 @@ Known open items (see plan doc "Risks / open questions" for more):
   to Alpine's `/usr/bin/node`. Runtime browser launches use Alpine's
   `/usr/bin/chromium-browser` rather than Playwright's browser cache, because
   `/root` is replaced with tmpfs at VM boot.
-- crawl4ai launches Chromium. The 256M VM default is kept for nested-session
-  practicality, and `web_fetch` does not use crawl4ai automatically at that
-  size. Forced `web_fetch` calls with `engine=crawl4ai` should use a larger
-  `SAGE_VM_MEMORY` value.
+- crawl4ai launches Chromium. The VM now defaults to 1G so forced
+  `web_fetch` calls with `engine=crawl4ai` have enough memory for basic pages.
 
 ## Prerequisites
 
@@ -230,7 +228,7 @@ Env vars (all optional):
 - `SAGE_QEMU_APPEND` — kernel cmdline override (default:
   `console=ttyS0 panic=1 reboot=k pci=lastbus=0`).
 - `SAGE_VM_CPUS` — VM vCPU count (default `1`).
-- `SAGE_VM_MEMORY` — Gondolin VM memory size (default `256M`).
+- `SAGE_VM_MEMORY` — Gondolin VM memory size (default `1G`).
 
 ## Tearing down a session
 
