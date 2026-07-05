@@ -25,19 +25,21 @@ architecture.
 
 - `bin/sage`: session lifecycle, Herdr worktree integration, image install,
   and handoff commands (`status`, `diff`, `merge`, `push`, `remove`). It also
-  has `install-pi-packages`, which registers `pi-fff`, `context-mode`, and
+  has `install-pi-packages`, which registers `context-mode` and
   `pi-web-access` as real Pi packages so package skills load. Do not load these
   packages with `pi -e npm:...`; that only loads extension resources and skips
-  package skills. Override install sources with `SAGE_FILE_SEARCH_PACKAGE`,
-  `SAGE_CONTEXT_MODE_PACKAGE`, or `SAGE_WEB_ACCESS_PACKAGE`; set any variable
-  to an empty string to skip that package install. Sage sets
-  `PI_FFF_MODE=override` at runtime unless the environment already provides a
-  different `PI_FFF_MODE`.
+  package skills. Override install sources with `SAGE_CONTEXT_MODE_PACKAGE` or
+  `SAGE_WEB_ACCESS_PACKAGE`; set either variable to an empty string to skip
+  that package install.
 - `packages/pi-sage-sandbox/src/config.ts`: image path, QEMU options, VM memory
   and CPU defaults, HTTP/SSH egress policy.
 - `packages/pi-sage-sandbox/src/gondolin-ops.ts`: adapters for pi's filesystem
   and shell tools.
 - `packages/pi-sage-sandbox/src/paths.ts`: host path to `/workspace` mapping.
+- `packages/pi-sage-sandbox/src/file-search.ts`: VM-backed path search and
+  bounded tree inspection.
+- `packages/pi-sage-sandbox/src/content-search.ts`: VM-backed bounded file
+  content search.
 - `packages/pi-sage-sandbox/src/process-tools.ts`: VM process listing and
   signaling tools.
 - `packages/pi-sage-sandbox/src/instructions.ts`: prompt text injected into
@@ -68,18 +70,21 @@ branch. It refuses to merge if the user's current checkout is dirty.
 ## Tool And VM Details
 
 - VM-backed tools are `read`, `write`, `edit`, `bash`, user `!`,
-  `process_list`, and `process_signal`. Use them for exact file bytes,
-  mutations, shell commands, builds, tests, and VM process inspection.
-- Host-side Pi package tools are `find`, `grep`, `multi_grep`, `ctx_*`,
-  `web_search`, and `fetch_content`. Use them for fast worktree search,
-  context-memory workflows, and web access; they do not inspect VM-local state.
+  `file_search`, `content_search`, `process_list`, and `process_signal`. Use
+  them for exact file bytes, path/tree inspection, content search, mutations,
+  shell commands, builds, tests, and VM process inspection.
+- Host-side Pi package tools are `ctx_*`, `web_search`, and `fetch_content`.
+  Use them for context-memory workflows and web access only; they must not
+  inspect local files.
 - Sage routing takes precedence when package guidance overlaps. Use VM-backed
   tools for exact bytes, mutations, builds, tests, and shell side effects. Use
   `ctx_*` tools for derived facts, summaries, indexed docs, noisy output, and
   memory/search workflows.
-- Sage registers `pi-fff` for file and content search in override mode by
-  default. Use FFF-backed `find` for fuzzy path search, `grep` for content
-  search, and `multi_grep` for OR-logic multi-pattern content search.
+- Sage launches Pi with built-in tools disabled. Do not re-enable host-side
+  `find`, `grep`, `ls`, or package-based local file search in Sage sessions
+  unless the user explicitly changes the sandboxing model.
+- Use `file_search` for fuzzy path search and bounded tree inspection. Use
+  `content_search` for local content search. Both execute inside the VM.
 - Sage registers `pi-web-access` for web tooling. Use `web_search` for URL
   discovery/current information and `fetch_content` for exact page contents.
 - Sage registers `context-mode` for context memory and `ctx_*` tooling. It

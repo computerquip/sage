@@ -53,6 +53,8 @@ import {
   createGondolinReadOps,
   createGondolinWriteOps,
 } from "./src/gondolin-ops.js";
+import { createContentSearchTool } from "./src/content-search.js";
+import { createFileSearchTool } from "./src/file-search.js";
 import {
   createProcessListTool,
   createProcessSignalTool,
@@ -214,6 +216,8 @@ export default function (pi: ExtensionAPI) {
 
   pi.registerTool(createProcessListTool((ctx) => ensureVm(ctx)));
   pi.registerTool(createProcessSignalTool((ctx) => ensureVm(ctx)));
+  pi.registerTool(createFileSearchTool((ctx) => ensureVm(ctx), localCwd));
+  pi.registerTool(createContentSearchTool((ctx) => ensureVm(ctx), localCwd));
 
   // Run user `!` commands inside the VM too.
   pi.on("user_bash", (_event, _ctx) => {

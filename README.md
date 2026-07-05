@@ -3,21 +3,18 @@
 herdr manages sandboxed agent sessions; each session runs `pi` on the host
 with read/write/edit/bash/`!` tool calls routed into a disposable
 [gondolin](https://gondolin.dev) QEMU VM. Sage also provides `process_list`
-and `process_signal` tools for structured VM process inspection. File and
-content search are delegated to
-[`@ff-labs/pi-fff`](https://pi.dev/packages/@ff-labs/pi-fff), which registers
-FFF-backed `find`, `grep`, and `multi_grep` in override mode by default. Web
-access is delegated to
+and `process_signal` tools for structured VM process inspection, plus
+VM-backed `file_search` and `content_search` tools for bounded local file
+search. Web access is delegated to
 [`pi-web-access`](https://github.com/nicobailon/pi-web-access), which registers
 `web_search` for discovery/current information and `fetch_content` for exact
-HTTP(S) page contents. `sage install-pi-packages` installs these as real Pi
+HTTP(S) page contents. `sage install-pi-packages` installs host-side Pi
 packages so package skills load alongside extensions. Override package sources
-with `SAGE_FILE_SEARCH_PACKAGE`, `SAGE_WEB_ACCESS_PACKAGE`, or
-`SAGE_CONTEXT_MODE_PACKAGE`; set a package variable empty to skip installing
-that package. Override `pi-fff` mode with `PI_FFF_MODE`. Sage also uses
+with `SAGE_WEB_ACCESS_PACKAGE` or `SAGE_CONTEXT_MODE_PACKAGE`; set a package
+variable empty to skip installing that package. Sage also uses
 [`context-mode`](https://github.com/mksglu/context-mode) with
 `npm:context-mode@1.0.169` for context memory and `ctx_*` tools. Because every
-dangerous filesystem and process action executes inside the sandbox, pi can be
+local filesystem and process action executes inside the sandbox, pi can be
 run fully auto-approved.
 
 See the design doc for the full rationale, architecture, and network model:
@@ -31,9 +28,9 @@ SSH, jq, QEMU tooling,
 Node/npm/pnpm, pi/gondolin CLIs, Python/pip/uv, Rust/cargo, GCC/G++,
 Clang/LLVM/lld, CMake, Ninja, Conan, pkgconf, gdb, and autotools/libtool. A
 live `pi` session routes filesystem/shell tool calls, structured file and
-process inspection through the VM. File/content search is provided by
-`pi-fff`; web discovery and content extraction are provided by
-`pi-web-access`; context memory is provided by `context-mode`.
+process inspection, and file/content search through the VM. Web discovery and
+content extraction are provided by `pi-web-access`; context memory is provided
+by `context-mode`.
 
 Known open items (see plan doc "Risks / open questions" for more):
 
@@ -59,10 +56,6 @@ Known open items (see plan doc "Risks / open questions" for more):
   scripts for `context-mode` or `better-sqlite3`, its SQLite-backed memory may
   not work until those package scripts are approved or rebuilt in the Pi
   package cache.
-- `pi-fff` runs in the host Pi process and indexes the Sage worktree directly
-  rather than going through the Gondolin VM. That is intentional for fast
-  local file/content search; file mutation and shell execution still go through
-  Sage's VM-routed tools.
 
 ## Prerequisites
 
@@ -87,6 +80,8 @@ sage/
 │  └─ src/
 │     ├─ paths.ts               # toGuestPath / shQuote
 │     ├─ gondolin-ops.ts        # read/write/edit/bash op adapters
+│     ├─ file-search.ts         # VM-backed path/tree search
+│     ├─ content-search.ts      # VM-backed content search
 │     └─ config.ts              # image dir + network policy resolution
 ├─ image/
 │  ├─ build-config.json        # gondolin custom image build config
@@ -232,13 +227,10 @@ Env vars (all optional):
 - `SAGE_IMAGE_VERSION` — GitHub release tag to download (default: `latest`).
 - `SAGE_IMAGE_URL` / `SAGE_IMAGE_SHA256_URL` — explicit download URL
   overrides.
-- `SAGE_FILE_SEARCH_PACKAGE` — Pi package source for file/content search
-  (default `npm:@ff-labs/pi-fff@0.9.6`; empty skips `sage install-pi-packages`).
 - `SAGE_CONTEXT_MODE_PACKAGE` — Pi package source for context memory (default
   `npm:context-mode@1.0.169`; empty skips `sage install-pi-packages`).
 - `SAGE_WEB_ACCESS_PACKAGE` — Pi package source for web tools (default
   `npm:pi-web-access@0.13.0`; empty skips `sage install-pi-packages`).
-- `PI_FFF_MODE` — `pi-fff` mode for Sage sessions (default `override`).
 - `SAGE_HTTP_ALLOWED_HOSTS` — comma-separated HTTP/HTTPS allowlist (default
   `*`).
 - `SAGE_SSH_HOSTS` — comma-separated SSH-git allowlist (default

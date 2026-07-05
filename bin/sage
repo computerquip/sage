@@ -18,7 +18,6 @@ SAGE_HOME="${SAGE_HOME:-$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)}"
 export SAGE_HOME
 export SAGE_QEMU_MACHINE_TYPE="${SAGE_QEMU_MACHINE_TYPE:-q35}"
 
-SAGE_FILE_SEARCH_PACKAGE="${SAGE_FILE_SEARCH_PACKAGE-npm:@ff-labs/pi-fff@0.9.6}"
 SAGE_CONTEXT_MODE_PACKAGE="${SAGE_CONTEXT_MODE_PACKAGE-npm:context-mode@1.0.169}"
 SAGE_WEB_ACCESS_PACKAGE="${SAGE_WEB_ACCESS_PACKAGE-npm:pi-web-access@0.13.0}"
 
@@ -48,9 +47,7 @@ if [ "${1:-}" = "__agent" ]; then
 
   SAGE_SANDBOX_EXTENSION="$SAGE_HOME/packages/pi-sage-sandbox/index.ts"
 
-  export PI_FFF_MODE="${PI_FFF_MODE:-override}"
-
-  exec pi -e "$SAGE_SANDBOX_EXTENSION" "$@"
+  exec pi --no-builtin-tools -e "$SAGE_SANDBOX_EXTENSION" "$@"
 fi
 
 HERDR="${HERDR_BIN_PATH:-herdr}"
@@ -155,10 +152,8 @@ Environment:
   SAGE_CACHE_DIR           cache directory; default is XDG cache or ~/.cache/sage
   SAGE_IMAGE_URL           explicit image archive URL override
   SAGE_IMAGE_SHA256_URL    explicit sha256 URL override
-  SAGE_FILE_SEARCH_PACKAGE Pi package for file/content search; empty skips install
   SAGE_CONTEXT_MODE_PACKAGE Pi package for context memory; empty skips install
   SAGE_WEB_ACCESS_PACKAGE  Pi package for web search/fetch; empty skips install
-  PI_FFF_MODE              pi-fff mode for sessions; default is override
 EOF
 }
 
@@ -178,7 +173,6 @@ install_pi_package() {
 install_pi_packages() {
   need_cmd pi
 
-  install_pi_package "$SAGE_FILE_SEARCH_PACKAGE" "file/content search"
   install_pi_package "$SAGE_CONTEXT_MODE_PACKAGE" "context memory"
   install_pi_package "$SAGE_WEB_ACCESS_PACKAGE" "web access"
 }

@@ -38,8 +38,8 @@ Choose the smallest tool that answers the question without flooding context:
 
 | Intent | Prefer |
 | --- | --- |
-| Locate files by name/path | \`find\` |
-| Search file contents | \`grep\`, or \`multi_grep\` for OR-logic searches |
+| Locate files by name/path or inspect a tree | \`file_search\` |
+| Search file contents | \`content_search\` |
 | Read exact file text for quoting or editing | \`read\` |
 | Modify files | \`edit\` or \`write\` |
 | Analyze or summarize a large file without loading exact bytes | \`ctx_execute_file\` |
@@ -53,14 +53,17 @@ Choose the smallest tool that answers the question without flooding context:
 Execution environments:
 
 - VM-backed tools: \`read\`, \`write\`, \`edit\`, \`bash\`, user \`!\`,
-  \`process_list\`, and \`process_signal\`. Use these for mutations, commands,
-  tests, builds, and process inspection.
-- Host-side Pi package tools: \`find\`, \`grep\`, \`multi_grep\`, \`ctx_*\`,
-  \`web_search\`, and \`fetch_content\`. These are available for fast search,
-  context memory, and web access; they do not inspect VM-local state.
-- File/content search tools are provided by \`pi-fff\` in override mode by
-  default. Web access tools are provided by \`pi-web-access\`. Context-memory
-  tools, when present, are provided by \`context-mode\`.
+  \`file_search\`, \`content_search\`, \`process_list\`, and
+  \`process_signal\`. Use these for file access, mutations, commands, tests,
+  builds, and process inspection.
+- Host-side Pi package tools: \`ctx_*\`, \`web_search\`, and
+  \`fetch_content\`. These are available for context memory and web access;
+  they must not be used to inspect local files.
+- Built-in host file tools are disabled for Sage sessions. If package guidance
+  mentions host-side \`find\`, \`grep\`, \`ls\`, or similar file tools, ignore
+  that guidance and use the VM-backed Sage tools instead.
+- Web access tools are provided by \`pi-web-access\`. Context-memory tools,
+  when present, are provided by \`context-mode\`.
 - If context-mode guidance suggests \`ctx_execute_file\` for "read/edit files",
   interpret that as analysis-only. For actual file modifications, use exact
   \`read\` context as needed, then \`edit\` or \`write\`.
