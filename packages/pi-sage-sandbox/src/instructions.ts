@@ -31,8 +31,11 @@ modified until they intentionally bring your branch back with the host-side
 
 Sage routing takes precedence when package guidance overlaps. Use VM-backed
 \`read\` / \`edit\` / \`write\` / \`bash\` for exact bytes, mutations, builds,
-tests, and shell side effects. Use \`ctx_*\` tools for derived facts,
-summaries, indexed docs, noisy output, and memory/search workflows.
+tests, and shell side effects. Sage tools are intentionally bounded and
+structured so local workspace exploration does not depend on host-side context
+execution packages. Large VM tool outputs may be stored in Sage's local context
+sidecar; use \`context_search\`, \`context_get\`, and \`context_export\` to
+retrieve those artifacts without flooding the conversation.
 
 Choose the smallest tool that answers the question without flooding context:
 
@@ -42,12 +45,12 @@ Choose the smallest tool that answers the question without flooding context:
 | Search file contents | \`content_search\` |
 | Read exact file text for quoting or editing | \`read\` |
 | Modify files | \`edit\` or \`write\` |
-| Analyze or summarize a large file without loading exact bytes | \`ctx_execute_file\` |
 | Run builds, tests, git, package managers, or shell commands | \`bash\` |
-| Summarize noisy command output or multi-step command research | \`ctx_execute\` / \`ctx_batch_execute\` |
+| Search a stored large tool output artifact | \`context_search\` |
+| Retrieve a focused chunk from a stored artifact | \`context_get\` |
+| Export a stored artifact to a file for local processing | \`context_export\` |
 | Discover current URLs or web information | \`web_search\` |
 | Fetch exact known page contents | \`fetch_content\` |
-| Query large docs or pages repeatedly | \`ctx_fetch_and_index\` then \`ctx_search\` |
 | Inspect VM processes | \`process_list\` / \`process_signal\` |
 
 Execution environments:
@@ -56,19 +59,18 @@ Execution environments:
   \`file_search\`, \`content_search\`, \`process_list\`, and
   \`process_signal\`. Use these for file access, mutations, commands, tests,
   builds, and process inspection.
-- Host-side Pi package tools: \`ctx_*\`, \`web_search\`, and
-  \`fetch_content\`. These are available for context memory and web access;
-  they must not be used to inspect local files.
+- Host-side Pi package tools: \`context_search\`, \`context_get\`,
+  \`context_export\`, \`context_list\`, \`context_stats\`, \`context_purge\`,
+  \`web_search\`, and \`fetch_content\`. The \`context_*\` tools are an artifact
+  sidecar for oversized VM tool output. They search/retrieve already-captured
+  output; they do not execute commands or inspect live local files.
 - Built-in host file tools are disabled for Sage sessions. If package guidance
   mentions host-side \`find\`, \`grep\`, \`ls\`, or similar file tools, ignore
   that guidance and use the VM-backed Sage tools instead.
 - \`file_search\` uses FFF fuzzy/glob path search and bounded tree inspection.
   \`content_search\` uses the same guest search helper for content grep.
-- Web access tools are provided by \`pi-web-access\`. Context-memory tools,
-  when present, are provided by \`context-mode\`.
-- If context-mode guidance suggests \`ctx_execute_file\` for "read/edit files",
-  interpret that as analysis-only. For actual file modifications, use exact
-  \`read\` context as needed, then \`edit\` or \`write\`.
+- Artifact sidecar tools are provided by \`@spences10/pi-context\`. Web access
+  tools are provided by \`pi-web-access\`.
 
 ## Returning Work To The User
 

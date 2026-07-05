@@ -9,14 +9,17 @@ search, backed by a guest-installed `sage-fff` wrapper around FFF. Web access
 is delegated to
 [`pi-web-access`](https://github.com/nicobailon/pi-web-access), which registers
 `web_search` for discovery/current information and `fetch_content` for exact
-HTTP(S) page contents. `sage install-pi-packages` installs host-side Pi
-packages so package skills load alongside extensions. Override package sources
-with `SAGE_WEB_ACCESS_PACKAGE` or `SAGE_CONTEXT_MODE_PACKAGE`; set a package
-variable empty to skip installing that package. Sage also uses
-[`context-mode`](https://github.com/mksglu/context-mode) with
-`npm:context-mode@1.0.169` for context memory and `ctx_*` tools. Because every
-local filesystem and process action executes inside the sandbox, pi can be
-run fully auto-approved.
+HTTP(S) page contents. Oversized tool output is captured by
+[`@spences10/pi-context`](https://github.com/spences10/my-pi/tree/main/packages/pi-context)
+into a local SQLite sidecar, then retrieved with `context_search`,
+`context_get`, and `context_export`. `sage install-pi-packages` installs
+host-side Pi packages into Pi's package cache. Sage sessions disable global Pi
+package discovery and explicitly load only the Sage extension plus the installed
+`@spences10/pi-context` and `pi-web-access` packages, so unrelated or
+previously installed Pi packages do not affect Sage. Override package sources
+with `SAGE_CONTEXT_PACKAGE` or `SAGE_WEB_ACCESS_PACKAGE`; set either empty to
+skip installing that package. Because every local filesystem and process action
+executes inside the sandbox, pi can be run fully auto-approved.
 
 See the design doc for the full rationale, architecture, and network model:
 `~/.local/share/kilo/plans/sage-sandboxed-agent.md`.
@@ -30,8 +33,8 @@ Node/npm/pnpm, pi/gondolin CLIs, Python/pip/uv, Rust/cargo, GCC/G++,
 Clang/LLVM/lld, CMake, Ninja, Conan, pkgconf, gdb, and autotools/libtool. A
 live `pi` session routes filesystem/shell tool calls, structured file and
 process inspection, and file/content search through the VM. Web discovery and
-content extraction are provided by `pi-web-access`; context memory is provided
-by `context-mode`.
+content extraction are provided by `pi-web-access`. Large text tool outputs are
+stored and retrieved through `@spences10/pi-context`.
 
 Known open items (see plan doc "Risks / open questions" for more):
 
@@ -55,15 +58,10 @@ Known open items (see plan doc "Risks / open questions" for more):
   on the host.
 - `image/build.sh` first compiles `tools/sage-fff` in an Alpine container and
   copies the resulting binary into the guest image as `/usr/local/bin/sage-fff`.
-- `context-mode` depends on `better-sqlite3`. If Pi/npm reports blocked install
-  scripts for `context-mode` or `better-sqlite3`, its SQLite-backed memory may
-  not work until those package scripts are approved or rebuilt in the Pi
-  package cache.
-
 ## Prerequisites
 
 - Host support for QEMU/KVM.
-- Node.js ≥ 23.6.0.
+- Node.js ≥ 24.15.0.
 - pnpm, git, jq, curl.
 - [herdr](https://herdr.dev) (`curl -fsSL https://herdr.dev/install.sh | sh`)
   + `herdr integration install pi`.
@@ -232,10 +230,18 @@ Env vars (all optional):
 - `SAGE_IMAGE_VERSION` — GitHub release tag to download (default: `latest`).
 - `SAGE_IMAGE_URL` / `SAGE_IMAGE_SHA256_URL` — explicit download URL
   overrides.
-- `SAGE_CONTEXT_MODE_PACKAGE` — Pi package source for context memory (default
-  `npm:context-mode@1.0.169`; empty skips `sage install-pi-packages`).
+- `SAGE_CONTEXT_PACKAGE` — Pi package source for the artifact sidecar (default
+  `npm:@spences10/pi-context@0.1.3`; empty skips `sage install-pi-packages`).
+- `SAGE_CONTEXT_EXTENSION` — explicit `pi-context` extension path (default:
+  `${PI_CODING_AGENT_DIR:-~/.pi/agent}/npm/node_modules/@spences10/pi-context/dist/index.js`).
+- `SAGE_CONTEXT_DB` — explicit `pi-context` SQLite database path. If unset,
+  Sage exports `MY_PI_CONTEXT_DB` to `${SAGE_CACHE_DIR:-${XDG_CACHE_HOME:-~/.cache}/sage}/context.db`.
 - `SAGE_WEB_ACCESS_PACKAGE` — Pi package source for web tools (default
   `npm:pi-web-access@0.13.0`; empty skips `sage install-pi-packages`).
+- `SAGE_WEB_ACCESS_EXTENSION` — explicit `pi-web-access` extension path
+  (default: `${PI_CODING_AGENT_DIR:-~/.pi/agent}/npm/node_modules/pi-web-access/index.ts`).
+- `SAGE_WEB_ACCESS_SKILLS` — explicit `pi-web-access` skills directory
+  (default: `${PI_CODING_AGENT_DIR:-~/.pi/agent}/npm/node_modules/pi-web-access/skills`).
 - `SAGE_HTTP_ALLOWED_HOSTS` — comma-separated HTTP/HTTPS allowlist (default
   `*`).
 - `SAGE_SSH_HOSTS` — comma-separated SSH-git allowlist (default

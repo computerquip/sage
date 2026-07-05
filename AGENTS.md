@@ -25,12 +25,13 @@ architecture.
 
 - `bin/sage`: session lifecycle, Herdr worktree integration, image install,
   and handoff commands (`status`, `diff`, `merge`, `push`, `remove`). It also
-  has `install-pi-packages`, which registers `context-mode` and
-  `pi-web-access` as real Pi packages so package skills load. Do not load these
-  packages with `pi -e npm:...`; that only loads extension resources and skips
-  package skills. Override install sources with `SAGE_CONTEXT_MODE_PACKAGE` or
-  `SAGE_WEB_ACCESS_PACKAGE`; set either variable to an empty string to skip
-  that package install.
+  has `install-pi-packages`, which installs `@spences10/pi-context` and
+  `pi-web-access` into Pi's package cache. Sage launches Pi with global
+  extension/skill discovery disabled, then explicitly loads the Sage extension,
+  the installed `@spences10/pi-context` extension, and the installed
+  `pi-web-access` extension/skills by path. Do not re-enable global package
+  discovery to pick up these tools; that can reintroduce unrelated host-side
+  packages.
 - `packages/pi-sage-sandbox/src/config.ts`: image path, QEMU options, VM memory
   and CPU defaults, HTTP/SSH egress policy.
 - `packages/pi-sage-sandbox/src/gondolin-ops.ts`: adapters for pi's filesystem
@@ -79,13 +80,17 @@ branch. It refuses to merge if the user's current checkout is dirty.
   `file_search`, `content_search`, `process_list`, and `process_signal`. Use
   them for exact file bytes, path/tree inspection, content search, mutations,
   shell commands, builds, tests, and VM process inspection.
-- Host-side Pi package tools are `ctx_*`, `web_search`, and `fetch_content`.
-  Use them for context-memory workflows and web access only; they must not
-  inspect local files.
+- Host-side artifact tools are `context_search`, `context_get`,
+  `context_export`, `context_list`, `context_stats`, and `context_purge` from
+  the explicitly loaded `@spences10/pi-context` package. These are an overflow
+  sidecar for large VM tool outputs. They search/retrieve already-captured
+  artifacts; they do not execute commands or inspect live local files.
+  `pi-context` requires Node >= 24.15.0 because it uses native `node:sqlite`.
+- Host-side web tools are `web_search` and `fetch_content` from the explicitly
+  loaded `pi-web-access` package. Use them for web access only.
 - Sage routing takes precedence when package guidance overlaps. Use VM-backed
-  tools for exact bytes, mutations, builds, tests, and shell side effects. Use
-  `ctx_*` tools for derived facts, summaries, indexed docs, noisy output, and
-  memory/search workflows.
+  tools for exact bytes, mutations, builds, tests, shell side effects, local
+  search, and bounded local inspection.
 - Sage launches Pi with built-in tools disabled. Do not re-enable host-side
   `find`, `grep`, `ls`, or package-based local file search in Sage sessions
   unless the user explicitly changes the sandboxing model.
@@ -93,17 +98,20 @@ branch. It refuses to merge if the user's current checkout is dirty.
   inspection. Use `content_search` for local content search. Both execute
   inside the VM through the guest `sage-fff` binary; cold VM sessions rebuild
   their in-memory search index on first use.
+- Sage registers `@spences10/pi-context` for artifact sidecar tooling. Large
+  text outputs from VM tools can be stored in a Sage-scoped SQLite DB. Use
+  `context_search` for snippets, `context_get` for focused chunks, and
+  `context_export` when broad/full output should be processed from a file
+  rather than loaded into chat.
+- The sidecar is not durable memory and is not an execution layer. In smoke
+  testing, a 69 KiB synthetic `bash` result was replaced with a
+  `[context-sidecar]` receipt, split into 18 chunks, found by
+  `context_search`, and retrieved by `context_get` with neighboring chunks.
 - Sage registers `pi-web-access` for web tooling. Use `web_search` for URL
   discovery/current information and `fetch_content` for exact page contents.
-- Sage registers `context-mode` for context memory and `ctx_*` tooling. It
-  depends on `better-sqlite3`; if Pi/npm blocks package install scripts, the
-  extension may load but SQLite-backed memory may be degraded until scripts are
-  approved or rebuilt.
 - Prefer `read` when exact file text is needed for quoting or editing. Prefer
-  `ctx_execute_file` when deriving facts from a large file without loading its
-  exact bytes into the conversation. If context-mode wording says
-  "Read/edit files -> ctx_execute_file", treat that as analysis-only; actual
-  edits still use `read` plus `edit`/`write`.
+  `file_search` and `content_search` for bounded local exploration before
+  reading large files. Actual edits still use `read` plus `edit`/`write`.
 - HTTP/HTTPS egress is host mediated and defaults to open via
   `SAGE_HTTP_ALLOWED_HOSTS=*`.
 - SSH git egress only works when the host has a valid `SSH_AUTH_SOCK` and the
@@ -137,6 +145,10 @@ not assume `cargo` exists.
 Commands that talk to the real Herdr server, such as `./bin/sage list`,
 `./bin/sage status latest`, or `./bin/sage diff --stat latest`, may need to run
 outside the sandbox.
+
+When package behavior changes, update the GitHub release notes for the current
+installable release (`gh release edit v0.2.0 --repo computerquip/sage --notes-file ...`)
+so users see the host-side package requirements alongside the image assets.
 
 ## Editing Guidance
 

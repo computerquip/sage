@@ -18,7 +18,7 @@ SAGE_HOME="${SAGE_HOME:-$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)}"
 export SAGE_HOME
 export SAGE_QEMU_MACHINE_TYPE="${SAGE_QEMU_MACHINE_TYPE:-q35}"
 
-SAGE_CONTEXT_MODE_PACKAGE="${SAGE_CONTEXT_MODE_PACKAGE-npm:context-mode@1.0.169}"
+SAGE_CONTEXT_PACKAGE="${SAGE_CONTEXT_PACKAGE-npm:@spences10/pi-context@0.1.3}"
 SAGE_WEB_ACCESS_PACKAGE="${SAGE_WEB_ACCESS_PACKAGE-npm:pi-web-access@0.13.0}"
 
 if [ "${1:-}" = "__agent" ]; then
@@ -46,8 +46,96 @@ if [ "${1:-}" = "__agent" ]; then
   fi
 
   SAGE_SANDBOX_EXTENSION="$SAGE_HOME/packages/pi-sage-sandbox/index.ts"
+  PI_AGENT_DIR="${PI_CODING_AGENT_DIR:-${HOME:-}/.pi/agent}"
+  SAGE_CONTEXT_EXTENSION="${SAGE_CONTEXT_EXTENSION:-$PI_AGENT_DIR/npm/node_modules/@spences10/pi-context/dist/index.js}"
+  SAGE_WEB_ACCESS_EXTENSION="${SAGE_WEB_ACCESS_EXTENSION:-$PI_AGENT_DIR/npm/node_modules/pi-web-access/index.ts}"
+  SAGE_WEB_ACCESS_SKILLS="${SAGE_WEB_ACCESS_SKILLS:-$PI_AGENT_DIR/npm/node_modules/pi-web-access/skills}"
 
-  exec pi --no-builtin-tools -e "$SAGE_SANDBOX_EXTENSION" "$@"
+  if [ -z "${MY_PI_CONTEXT_DB:-}" ]; then
+    if [ -n "${SAGE_CONTEXT_DB:-}" ]; then
+      export MY_PI_CONTEXT_DB="$SAGE_CONTEXT_DB"
+    elif [ -n "${SAGE_CACHE_DIR:-}" ]; then
+      export MY_PI_CONTEXT_DB="$SAGE_CACHE_DIR/context.db"
+    elif [ -n "${XDG_CACHE_HOME:-}" ]; then
+      export MY_PI_CONTEXT_DB="$XDG_CACHE_HOME/sage/context.db"
+    elif [ -n "${HOME:-}" ]; then
+      export MY_PI_CONTEXT_DB="$HOME/.cache/sage/context.db"
+    else
+      export MY_PI_CONTEXT_DB="/tmp/sage-context.db"
+    fi
+  fi
+
+  HAS_CONTEXT_EXTENSION=false
+  HAS_WEB_ACCESS_EXTENSION=false
+  HAS_WEB_ACCESS_SKILLS=false
+
+  if [ -f "$SAGE_CONTEXT_EXTENSION" ]; then
+    HAS_CONTEXT_EXTENSION=true
+  fi
+  if [ -f "$SAGE_WEB_ACCESS_EXTENSION" ]; then
+    HAS_WEB_ACCESS_EXTENSION=true
+  fi
+  if [ -d "$SAGE_WEB_ACCESS_SKILLS" ]; then
+    HAS_WEB_ACCESS_SKILLS=true
+  fi
+
+  if [ "$HAS_CONTEXT_EXTENSION" = true ] && [ "$HAS_WEB_ACCESS_EXTENSION" = true ] && [ "$HAS_WEB_ACCESS_SKILLS" = true ]; then
+    exec pi --no-builtin-tools --no-extensions --no-skills \
+      -e "$SAGE_SANDBOX_EXTENSION" \
+      -e "$SAGE_CONTEXT_EXTENSION" \
+      -e "$SAGE_WEB_ACCESS_EXTENSION" \
+      --skill "$SAGE_WEB_ACCESS_SKILLS" \
+      "$@"
+  fi
+
+  if [ "$HAS_CONTEXT_EXTENSION" = true ] && [ "$HAS_WEB_ACCESS_EXTENSION" = true ]; then
+    exec pi --no-builtin-tools --no-extensions --no-skills \
+      -e "$SAGE_SANDBOX_EXTENSION" \
+      -e "$SAGE_CONTEXT_EXTENSION" \
+      -e "$SAGE_WEB_ACCESS_EXTENSION" \
+      "$@"
+  fi
+
+  if [ "$HAS_CONTEXT_EXTENSION" = true ] && [ "$HAS_WEB_ACCESS_SKILLS" = true ]; then
+    exec pi --no-builtin-tools --no-extensions --no-skills \
+      -e "$SAGE_SANDBOX_EXTENSION" \
+      -e "$SAGE_CONTEXT_EXTENSION" \
+      --skill "$SAGE_WEB_ACCESS_SKILLS" \
+      "$@"
+  fi
+
+  if [ "$HAS_WEB_ACCESS_EXTENSION" = true ] && [ "$HAS_WEB_ACCESS_SKILLS" = true ]; then
+    exec pi --no-builtin-tools --no-extensions --no-skills \
+      -e "$SAGE_SANDBOX_EXTENSION" \
+      -e "$SAGE_WEB_ACCESS_EXTENSION" \
+      --skill "$SAGE_WEB_ACCESS_SKILLS" \
+      "$@"
+  fi
+
+  if [ "$HAS_CONTEXT_EXTENSION" = true ]; then
+    exec pi --no-builtin-tools --no-extensions --no-skills \
+      -e "$SAGE_SANDBOX_EXTENSION" \
+      -e "$SAGE_CONTEXT_EXTENSION" \
+      "$@"
+  fi
+
+  if [ "$HAS_WEB_ACCESS_EXTENSION" = true ]; then
+    exec pi --no-builtin-tools --no-extensions --no-skills \
+      -e "$SAGE_SANDBOX_EXTENSION" \
+      -e "$SAGE_WEB_ACCESS_EXTENSION" \
+      "$@"
+  fi
+
+  if [ "$HAS_WEB_ACCESS_SKILLS" = true ]; then
+    exec pi --no-builtin-tools --no-extensions --no-skills \
+      -e "$SAGE_SANDBOX_EXTENSION" \
+      --skill "$SAGE_WEB_ACCESS_SKILLS" \
+      "$@"
+  fi
+
+  exec pi --no-builtin-tools --no-extensions --no-skills \
+    -e "$SAGE_SANDBOX_EXTENSION" \
+    "$@"
 fi
 
 HERDR="${HERDR_BIN_PATH:-herdr}"
@@ -152,8 +240,12 @@ Environment:
   SAGE_CACHE_DIR           cache directory; default is XDG cache or ~/.cache/sage
   SAGE_IMAGE_URL           explicit image archive URL override
   SAGE_IMAGE_SHA256_URL    explicit sha256 URL override
-  SAGE_CONTEXT_MODE_PACKAGE Pi package for context memory; empty skips install
+  SAGE_CONTEXT_PACKAGE     Pi package for artifact sidecar; empty skips install
+  SAGE_CONTEXT_EXTENSION   explicit pi-context extension path
+  SAGE_CONTEXT_DB          explicit pi-context SQLite database path
   SAGE_WEB_ACCESS_PACKAGE  Pi package for web search/fetch; empty skips install
+  SAGE_WEB_ACCESS_EXTENSION explicit pi-web-access extension path
+  SAGE_WEB_ACCESS_SKILLS   explicit pi-web-access skills directory
 EOF
 }
 
@@ -173,7 +265,7 @@ install_pi_package() {
 install_pi_packages() {
   need_cmd pi
 
-  install_pi_package "$SAGE_CONTEXT_MODE_PACKAGE" "context memory"
+  install_pi_package "$SAGE_CONTEXT_PACKAGE" "artifact context"
   install_pi_package "$SAGE_WEB_ACCESS_PACKAGE" "web access"
 }
 
