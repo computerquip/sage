@@ -26,8 +26,9 @@ modified until they intentionally bring your branch back with the host-side
 - Use structured tools when they fit: \`file_search\` for path searches/trees,
   provider-native web search for URL discovery/current information,
   \`web_fetch\` for exact HTTP(S) page contents, and \`process_list\` /
-  \`process_signal\` for VM processes. Sage does not register a local
-  \`web_search\` scraper tool. The process tools inspect the VM, not the host.
+  \`process_signal\` for VM processes. The \`web_search\` tool is provider-backed
+  through Bedrock AgentCore when configured; it is not a search-engine scraper.
+  The process tools inspect the VM, not the host.
 - Network egress is host-mediated. HTTP/HTTPS is available according to Sage's
   allowlist. SSH git only works when the host provided a valid ssh-agent socket
   and the destination host is allowed.

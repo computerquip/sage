@@ -32,8 +32,10 @@ architecture.
 - `packages/pi-sage-sandbox/src/paths.ts`: host path to `/workspace` mapping.
 - `packages/pi-sage-sandbox/src/file-search.ts`: structured file search and
   bounded tree tool.
+- `packages/pi-sage-sandbox/src/bedrock-web-search.ts`: `web_search` tool
+  backed by Amazon Bedrock AgentCore Gateway Web Search.
 - `packages/pi-sage-sandbox/src/provider-web-search.ts`: injects
-  provider-native web search into supported model requests.
+  OpenAI-hosted web search into supported OpenAI Responses requests.
 - `packages/pi-sage-sandbox/src/web-fetch.ts`: structured HTTP(S) page
   fetching through the VM.
 - `packages/pi-sage-sandbox/src/process-tools.ts`: VM process listing and
@@ -67,10 +69,12 @@ branch. It refuses to merge if the user's current checkout is dirty.
 
 - Read/write/edit/bash and user `!` commands in pi sessions execute in the
   Gondolin VM. Process tools inspect VM processes, not host processes.
-- Sage does not register a local `web_search` scraper. URL discovery/current
-  information should use provider-native web search when the active model
-  provider supports it; `web_fetch` is still available for exact page contents
-  through the VM.
+- Sage does not register a local search-engine scraper. URL discovery/current
+  information should use provider-backed web search: OpenAI gets hosted
+  `web_search` injected into Responses requests; Bedrock uses Sage's
+  `web_search` tool backed by an AgentCore Gateway Web Search connector when
+  `SAGE_BEDROCK_AGENTCORE_GATEWAY_URL` and auth env vars are configured.
+  `web_fetch` is still available for exact page contents through the VM.
 - HTTP/HTTPS egress is host mediated and defaults to open via
   `SAGE_HTTP_ALLOWED_HOSTS=*`.
 - SSH git egress only works when the host has a valid `SSH_AUTH_SOCK` and the
@@ -87,6 +91,7 @@ Useful checks that have worked in this repo:
 sh -n bin/sage
 ./bin/sage --help
 node --check packages/pi-sage-sandbox/index.ts
+node --check packages/pi-sage-sandbox/src/bedrock-web-search.ts
 node --check packages/pi-sage-sandbox/src/instructions.ts
 node --check packages/pi-sage-sandbox/src/provider-web-search.ts
 git diff --check
