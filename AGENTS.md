@@ -67,19 +67,26 @@ branch. It refuses to merge if the user's current checkout is dirty.
 
 ## Tool And VM Details
 
-- Read/write/edit/bash and user `!` commands in pi sessions execute in the
-  Gondolin VM. Process tools inspect VM processes, not host processes.
+- VM-backed tools are `read`, `write`, `edit`, `bash`, user `!`,
+  `process_list`, and `process_signal`. Use them for exact file bytes,
+  mutations, shell commands, builds, tests, and VM process inspection.
+- Host-side Pi package tools are `find`, `grep`, `multi_grep`, `ctx_*`,
+  `web_search`, and `fetch_content`. Use them for fast worktree search,
+  context-memory workflows, and web access; they do not inspect VM-local state.
 - Sage registers `pi-fff` for file and content search in override mode by
   default. Use FFF-backed `find` for fuzzy path search, `grep` for content
-  search, and `multi_grep` for OR-logic multi-pattern content search. `pi-fff`
-  runs in the host Pi process and indexes the Sage worktree directly; it does
-  not execute shell commands.
+  search, and `multi_grep` for OR-logic multi-pattern content search.
 - Sage registers `pi-web-access` for web tooling. Use `web_search` for URL
   discovery/current information and `fetch_content` for exact page contents.
 - Sage registers `context-mode` for context memory and `ctx_*` tooling. It
   depends on `better-sqlite3`; if Pi/npm blocks package install scripts, the
   extension may load but SQLite-backed memory may be degraded until scripts are
   approved or rebuilt.
+- Prefer `read` when exact file text is needed for quoting or editing. Prefer
+  `ctx_execute_file` when deriving facts from a large file without loading its
+  exact bytes into the conversation. If context-mode wording says
+  "Read/edit files -> ctx_execute_file", treat that as analysis-only; actual
+  edits still use `read` plus `edit`/`write`.
 - HTTP/HTTPS egress is host mediated and defaults to open via
   `SAGE_HTTP_ALLOWED_HOSTS=*`.
 - SSH git egress only works when the host has a valid `SSH_AUTH_SOCK` and the
