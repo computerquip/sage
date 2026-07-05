@@ -42,9 +42,19 @@ if [ "${1:-}" = "__agent" ]; then
     exit 1
   fi
 
-  SAGE_WEB_ACCESS_PACKAGE="${SAGE_WEB_ACCESS_PACKAGE:-npm:pi-web-access@0.13.0}"
+  SAGE_SANDBOX_EXTENSION="$SAGE_HOME/packages/pi-sage-sandbox/index.ts"
+  SAGE_CONTEXT_MODE_PACKAGE="${SAGE_CONTEXT_MODE_PACKAGE-npm:context-mode@1.0.169}"
+  SAGE_WEB_ACCESS_PACKAGE="${SAGE_WEB_ACCESS_PACKAGE-npm:pi-web-access@0.13.0}"
 
-  exec pi -e "$SAGE_WEB_ACCESS_PACKAGE" -e "$SAGE_HOME/packages/pi-sage-sandbox/index.ts" "$@"
+  if [ -n "$SAGE_CONTEXT_MODE_PACKAGE" ] && [ -n "$SAGE_WEB_ACCESS_PACKAGE" ]; then
+    exec pi -e "$SAGE_CONTEXT_MODE_PACKAGE" -e "$SAGE_WEB_ACCESS_PACKAGE" -e "$SAGE_SANDBOX_EXTENSION" "$@"
+  elif [ -n "$SAGE_CONTEXT_MODE_PACKAGE" ]; then
+    exec pi -e "$SAGE_CONTEXT_MODE_PACKAGE" -e "$SAGE_SANDBOX_EXTENSION" "$@"
+  elif [ -n "$SAGE_WEB_ACCESS_PACKAGE" ]; then
+    exec pi -e "$SAGE_WEB_ACCESS_PACKAGE" -e "$SAGE_SANDBOX_EXTENSION" "$@"
+  fi
+
+  exec pi -e "$SAGE_SANDBOX_EXTENSION" "$@"
 fi
 
 HERDR="${HERDR_BIN_PATH:-herdr}"

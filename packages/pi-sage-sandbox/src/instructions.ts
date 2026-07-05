@@ -26,8 +26,9 @@ modified until they intentionally bring your branch back with the host-side
 - Use structured tools when they fit: \`file_search\` for path searches/trees,
   \`web_search\` for URL discovery/current information, \`fetch_content\` for
   exact HTTP(S) page contents, and \`process_list\` / \`process_signal\` for VM
-  processes. Web access tools are provided by \`pi-web-access\`; the process
-  tools inspect the VM, not the host.
+  processes. Web access tools are provided by \`pi-web-access\`; context-memory
+  tools, when present, are provided by \`context-mode\`. The process tools
+  inspect the VM, not the host.
 - Network egress is host-mediated. HTTP/HTTPS is available according to Sage's
   allowlist. SSH git only works when the host provided a valid ssh-agent socket
   and the destination host is allowed.

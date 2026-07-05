@@ -25,8 +25,11 @@ architecture.
 
 - `bin/sage`: session lifecycle, Herdr worktree integration, image install,
   and handoff commands (`status`, `diff`, `merge`, `push`, `remove`). It also
-  loads `pi-web-access` with `pi -e npm:pi-web-access@0.13.0`; override with
-  `SAGE_WEB_ACCESS_PACKAGE` when testing a different package source.
+  loads `context-mode` with `pi -e npm:context-mode@1.0.169` and
+  `pi-web-access` with `pi -e npm:pi-web-access@0.13.0`; override with
+  `SAGE_CONTEXT_MODE_PACKAGE` or `SAGE_WEB_ACCESS_PACKAGE` when testing a
+  different package source. Set either variable to an empty string to disable
+  that package for one launch.
 - `packages/pi-sage-sandbox/src/config.ts`: image path, QEMU options, VM memory
   and CPU defaults, HTTP/SSH egress policy.
 - `packages/pi-sage-sandbox/src/gondolin-ops.ts`: adapters for pi's filesystem
@@ -67,6 +70,10 @@ branch. It refuses to merge if the user's current checkout is dirty.
   Gondolin VM. Process tools inspect VM processes, not host processes.
 - Sage registers `pi-web-access` for web tooling. Use `web_search` for URL
   discovery/current information and `fetch_content` for exact page contents.
+- Sage registers `context-mode` for context memory and `ctx_*` tooling. It
+  depends on `better-sqlite3`; if Pi/npm blocks package install scripts, the
+  extension may load but SQLite-backed memory may be degraded until scripts are
+  approved or rebuilt.
 - HTTP/HTTPS egress is host mediated and defaults to open via
   `SAGE_HTTP_ALLOWED_HOSTS=*`.
 - SSH git egress only works when the host has a valid `SSH_AUTH_SOCK` and the

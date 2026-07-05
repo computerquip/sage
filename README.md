@@ -9,8 +9,12 @@ inspection. Web access is delegated to
 `web_search` for discovery/current information and `fetch_content` for exact
 HTTP(S) page contents. Sage loads it at agent startup with
 `pi -e npm:pi-web-access@0.13.0`; override that source with
-`SAGE_WEB_ACCESS_PACKAGE` if needed. Because every dangerous filesystem and
-process action executes inside the sandbox, pi can be run fully auto-approved.
+`SAGE_WEB_ACCESS_PACKAGE` if needed. Sage also loads
+[`context-mode`](https://github.com/mksglu/context-mode) with
+`pi -e npm:context-mode@1.0.169` for context memory and `ctx_*` tools; override
+or disable it with `SAGE_CONTEXT_MODE_PACKAGE`. Because every dangerous
+filesystem and process action executes inside the sandbox, pi can be run fully
+auto-approved.
 
 See the design doc for the full rationale, architecture, and network model:
 `~/.local/share/kilo/plans/sage-sandboxed-agent.md`.
@@ -24,7 +28,7 @@ Node/npm/pnpm, pi/gondolin CLIs, Python/pip/uv, Rust/cargo, GCC/G++,
 Clang/LLVM/lld, CMake, Ninja, Conan, pkgconf, gdb, and autotools/libtool. A
 live `pi` session routes filesystem/shell tool calls, structured file and
 process inspection through the VM. Web discovery and content extraction are
-provided by `pi-web-access`.
+provided by `pi-web-access`; context memory is provided by `context-mode`.
 
 Known open items (see plan doc "Risks / open questions" for more):
 
@@ -46,6 +50,11 @@ Known open items (see plan doc "Risks / open questions" for more):
 - `image/build.sh` uses Gondolin's Podman container build path so
   `postBuild.commands` can run without `sudo`. Rootless Podman must be usable
   on the host.
+- `context-mode` depends on `better-sqlite3`. If Pi/npm reports blocked install
+  scripts for `context-mode` or `better-sqlite3`, its SQLite-backed memory may
+  not work until those package scripts are approved or rebuilt in the Pi
+  package cache.
+
 ## Prerequisites
 
 - Host support for QEMU/KVM.
