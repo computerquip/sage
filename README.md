@@ -3,10 +3,12 @@
 herdr manages sandboxed agent sessions; each session runs `pi` on the host
 with read/write/edit/bash/`!` tool calls routed into a disposable
 [gondolin](https://gondolin.dev) QEMU VM. Sage also provides `file_search`,
-`process_list`, `process_signal`, `web_search`, and `web_fetch` tools for
-structured workspace/process inspection and HTTP(S) discovery/fetching
-through the same VM network policy. Because every dangerous action executes
-inside the sandbox, pi can be run fully auto-approved.
+`process_list`, `process_signal`, and `web_fetch` tools for structured
+workspace/process inspection and HTTP(S) page fetching through the same VM
+network policy. Provider-native web search is injected for supported model
+providers instead of registering a local search scraper. Because every
+dangerous action executes inside the sandbox, pi can be run fully
+auto-approved.
 
 See the design doc for the full rationale, architecture, and network model:
 `~/.local/share/kilo/plans/sage-sandboxed-agent.md`.
@@ -19,7 +21,8 @@ SSH, jq, QEMU tooling,
 Node/npm/pnpm, pi/gondolin CLIs, Python/pip/uv, Rust/cargo, GCC/G++,
 Clang/LLVM/lld, CMake, Ninja, Conan, pkgconf, gdb, and autotools/libtool. A
 live `pi` session routes filesystem/shell tool calls, structured file and
-process inspection, web searches, and web fetches through the VM.
+process inspection, and web fetches through the VM. OpenAI Responses requests
+also receive the provider-hosted `web_search` tool.
 
 Known open items (see plan doc "Risks / open questions" for more):
 

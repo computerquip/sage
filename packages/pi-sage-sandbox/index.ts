@@ -59,8 +59,8 @@ import {
   createProcessSignalTool,
 } from "./src/process-tools.js";
 import { buildSageInstructions } from "./src/instructions.js";
+import { addProviderWebSearch } from "./src/provider-web-search.js";
 import { createWebFetchTool } from "./src/web-fetch.js";
-import { createWebSearchTool } from "./src/web-search.js";
 
 export default function (pi: ExtensionAPI) {
   const localCwd = process.cwd();
@@ -219,8 +219,11 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool(createFileSearchTool((ctx) => ensureVm(ctx), localCwd));
   pi.registerTool(createProcessListTool((ctx) => ensureVm(ctx)));
   pi.registerTool(createProcessSignalTool((ctx) => ensureVm(ctx)));
-  pi.registerTool(createWebSearchTool((ctx) => ensureVm(ctx)));
   pi.registerTool(createWebFetchTool((ctx) => ensureVm(ctx)));
+
+  pi.on("before_provider_request", (event) => {
+    return addProviderWebSearch(event.payload);
+  });
 
   // Run user `!` commands inside the VM too.
   pi.on("user_bash", (_event, _ctx) => {
