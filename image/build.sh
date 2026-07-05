@@ -13,7 +13,17 @@ set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 REPO_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
-OUTPUT_DIR="${1:-$REPO_ROOT/.gondolin-image}"
+if [ "$#" -gt 0 ]; then
+  OUTPUT_DIR="$1"
+elif [ -n "${SAGE_IMAGE_DIR:-}" ]; then
+  OUTPUT_DIR="$SAGE_IMAGE_DIR"
+elif [ -n "${SAGE_CACHE_DIR:-}" ]; then
+  OUTPUT_DIR="$SAGE_CACHE_DIR/gondolin-image"
+elif [ -n "${XDG_CACHE_HOME:-}" ]; then
+  OUTPUT_DIR="$XDG_CACHE_HOME/sage/gondolin-image"
+else
+  OUTPUT_DIR="$HOME/.cache/sage/gondolin-image"
+fi
 
 if ! command -v gondolin >/dev/null 2>&1; then
   echo "error: 'gondolin' CLI not found on PATH" >&2

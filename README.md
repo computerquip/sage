@@ -255,6 +255,10 @@ Build and package the image:
 ./image/package-release.sh
 ```
 
+`image/build.sh` writes to Sage's default image cache unless you pass an
+explicit output directory. `image/package-release.sh` packages that same image
+by default.
+
 This creates:
 
 ```text
