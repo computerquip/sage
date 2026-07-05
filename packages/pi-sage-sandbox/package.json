@@ -7,16 +7,9 @@
   "main": "index.ts",
   "dependencies": {
     "@earendil-works/gondolin": "^0.12.0",
-    "@earendil-works/pi-coding-agent": "^0.80.3",
-    "@mozilla/readability": "^0.6.0",
-    "jsdom": "^29.1.1",
-    "turndown": "^7.2.4"
+    "@earendil-works/pi-coding-agent": "^0.80.3"
   },
   "engines": {
     "node": ">=23.6.0"
-  },
-  "devDependencies": {
-    "@types/jsdom": "^28.0.3",
-    "@types/turndown": "^5.0.6"
   }
 }

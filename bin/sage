@@ -42,7 +42,9 @@ if [ "${1:-}" = "__agent" ]; then
     exit 1
   fi
 
-  exec pi -e "$SAGE_HOME/packages/pi-sage-sandbox/index.ts" "$@"
+  SAGE_WEB_ACCESS_PACKAGE="${SAGE_WEB_ACCESS_PACKAGE:-npm:pi-web-access@0.13.0}"
+
+  exec pi -e "$SAGE_WEB_ACCESS_PACKAGE" -e "$SAGE_HOME/packages/pi-sage-sandbox/index.ts" "$@"
 fi
 
 HERDR="${HERDR_BIN_PATH:-herdr}"

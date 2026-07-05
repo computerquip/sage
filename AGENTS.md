@@ -24,7 +24,9 @@ architecture.
 ## Important Files
 
 - `bin/sage`: session lifecycle, Herdr worktree integration, image install,
-  and handoff commands (`status`, `diff`, `merge`, `push`, `remove`).
+  and handoff commands (`status`, `diff`, `merge`, `push`, `remove`). It also
+  loads `pi-web-access` with `pi -e npm:pi-web-access@0.13.0`; override with
+  `SAGE_WEB_ACCESS_PACKAGE` when testing a different package source.
 - `packages/pi-sage-sandbox/src/config.ts`: image path, QEMU options, VM memory
   and CPU defaults, HTTP/SSH egress policy.
 - `packages/pi-sage-sandbox/src/gondolin-ops.ts`: adapters for pi's filesystem
@@ -32,12 +34,6 @@ architecture.
 - `packages/pi-sage-sandbox/src/paths.ts`: host path to `/workspace` mapping.
 - `packages/pi-sage-sandbox/src/file-search.ts`: structured file search and
   bounded tree tool.
-- `packages/pi-sage-sandbox/src/provider-web-search.ts`: injects
-  OpenAI-hosted web search into supported OpenAI Responses requests.
-- `packages/pi-sage-sandbox/src/web-fetch.ts`: structured HTTP(S) page
-  fetching through the VM. `engine=auto` uses curl plus Readability/Turndown
-  for reliability; `engine=crawl4ai` uses browser-rendered Markdown when the VM
-  has enough memory.
 - `packages/pi-sage-sandbox/src/process-tools.ts`: VM process listing and
   signaling tools.
 - `packages/pi-sage-sandbox/src/instructions.ts`: prompt text injected into
@@ -69,20 +65,8 @@ branch. It refuses to merge if the user's current checkout is dirty.
 
 - Read/write/edit/bash and user `!` commands in pi sessions execute in the
   Gondolin VM. Process tools inspect VM processes, not host processes.
-- Sage does not register a local search-engine scraper. URL discovery/current
-  information can use OpenAI-hosted `web_search` when the active provider is
-  OpenAI Responses. `web_fetch` is available for exact page contents through
-  the VM; use `engine=curl` for exact/raw HTTP retrieval and `engine=crawl4ai`
-  when browser-rendered Markdown is specifically required.
-- crawl4ai is installed on Alpine via an intentional workaround in
-  `image/install-crawl4ai-alpine.sh`: Python Playwright is built from source,
-  patchright's manylinux wheel is retagged, and both bundled driver `node`
-  binaries are replaced with symlinks to Alpine's `/usr/bin/node`. The
-  `web_fetch` runner patches crawl4ai's browser launch args to use
-  `/usr/bin/chromium-browser`, avoiding Playwright's `/root` browser cache.
-- crawl4ai launches Chromium, so Sage defaults to 1G VM memory. The default
-  `engine=auto` still avoids crawl4ai unless `SAGE_WEB_FETCH_AUTO_CRAWL4AI=1`
-  is set.
+- Sage registers `pi-web-access` for web tooling. Use `web_search` for URL
+  discovery/current information and `fetch_content` for exact page contents.
 - HTTP/HTTPS egress is host mediated and defaults to open via
   `SAGE_HTTP_ALLOWED_HOSTS=*`.
 - SSH git egress only works when the host has a valid `SSH_AUTH_SOCK` and the
@@ -100,7 +84,6 @@ sh -n bin/sage
 ./bin/sage --help
 node --check packages/pi-sage-sandbox/index.ts
 node --check packages/pi-sage-sandbox/src/instructions.ts
-node --check packages/pi-sage-sandbox/src/provider-web-search.ts
 git diff --check
 ```
 

@@ -3,11 +3,14 @@
 herdr manages sandboxed agent sessions; each session runs `pi` on the host
 with read/write/edit/bash/`!` tool calls routed into a disposable
 [gondolin](https://gondolin.dev) QEMU VM. Sage also provides `file_search`,
-`process_list`, `process_signal`, and `web_fetch` tools for structured
-workspace/process inspection and HTTP(S) page fetching through the same VM
-network policy. OpenAI Responses requests get OpenAI's hosted `web_search`
-tool for provider-native discovery. Because every dangerous action executes
-inside the sandbox, pi can be run fully auto-approved.
+`process_list`, and `process_signal` tools for structured workspace/process
+inspection. Web access is delegated to
+[`pi-web-access`](https://github.com/nicobailon/pi-web-access), which registers
+`web_search` for discovery/current information and `fetch_content` for exact
+HTTP(S) page contents. Sage loads it at agent startup with
+`pi -e npm:pi-web-access@0.13.0`; override that source with
+`SAGE_WEB_ACCESS_PACKAGE` if needed. Because every dangerous filesystem and
+process action executes inside the sandbox, pi can be run fully auto-approved.
 
 See the design doc for the full rationale, architecture, and network model:
 `~/.local/share/kilo/plans/sage-sandboxed-agent.md`.
@@ -20,10 +23,8 @@ SSH, jq, QEMU tooling,
 Node/npm/pnpm, pi/gondolin CLIs, Python/pip/uv, Rust/cargo, GCC/G++,
 Clang/LLVM/lld, CMake, Ninja, Conan, pkgconf, gdb, and autotools/libtool. A
 live `pi` session routes filesystem/shell tool calls, structured file and
-process inspection, and web fetches through the VM. OpenAI Responses requests
-also receive the provider-hosted `web_search` tool.
-`web_fetch` defaults to curl plus Readability/Turndown for reliable low-memory
-fetches. Use `engine=crawl4ai` for browser-rendered extraction when needed.
+process inspection through the VM. Web discovery and content extraction are
+provided by `pi-web-access`.
 
 Known open items (see plan doc "Risks / open questions" for more):
 
@@ -45,15 +46,6 @@ Known open items (see plan doc "Risks / open questions" for more):
 - `image/build.sh` uses Gondolin's Podman container build path so
   `postBuild.commands` can run without `sudo`. Rootless Podman must be usable
   on the host.
-- crawl4ai is installed on Alpine with a deliberate Python Playwright
-  workaround: Playwright is built from source, patchright's manylinux wheel is
-  retagged, and both bundled driver `node` binaries are replaced with symlinks
-  to Alpine's `/usr/bin/node`. Runtime browser launches use Alpine's
-  `/usr/bin/chromium-browser` rather than Playwright's browser cache, because
-  `/root` is replaced with tmpfs at VM boot.
-- crawl4ai launches Chromium. The VM now defaults to 1G so forced
-  `web_fetch` calls with `engine=crawl4ai` have enough memory for basic pages.
-
 ## Prerequisites
 
 - Host support for QEMU/KVM.
