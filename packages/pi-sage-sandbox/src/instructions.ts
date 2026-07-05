@@ -29,6 +29,11 @@ modified until they intentionally bring your branch back with the host-side
 
 ## Tool Routing
 
+Sage routing takes precedence when package guidance overlaps. Use VM-backed
+\`read\` / \`edit\` / \`write\` / \`bash\` for exact bytes, mutations, builds,
+tests, and shell side effects. Use \`ctx_*\` tools for derived facts,
+summaries, indexed docs, noisy output, and memory/search workflows.
+
 Choose the smallest tool that answers the question without flooding context:
 
 | Intent | Prefer |
@@ -40,8 +45,9 @@ Choose the smallest tool that answers the question without flooding context:
 | Analyze or summarize a large file without loading exact bytes | \`ctx_execute_file\` |
 | Run builds, tests, git, package managers, or shell commands | \`bash\` |
 | Summarize noisy command output or multi-step command research | \`ctx_execute\` / \`ctx_batch_execute\` |
-| Discover current web information | \`web_search\` |
-| Fetch exact web page contents | \`fetch_content\`, or \`ctx_fetch_and_index\` then \`ctx_search\` for large docs |
+| Discover current URLs or web information | \`web_search\` |
+| Fetch exact known page contents | \`fetch_content\` |
+| Query large docs or pages repeatedly | \`ctx_fetch_and_index\` then \`ctx_search\` |
 | Inspect VM processes | \`process_list\` / \`process_signal\` |
 
 Execution environments:

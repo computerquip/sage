@@ -73,6 +73,10 @@ branch. It refuses to merge if the user's current checkout is dirty.
 - Host-side Pi package tools are `find`, `grep`, `multi_grep`, `ctx_*`,
   `web_search`, and `fetch_content`. Use them for fast worktree search,
   context-memory workflows, and web access; they do not inspect VM-local state.
+- Sage routing takes precedence when package guidance overlaps. Use VM-backed
+  tools for exact bytes, mutations, builds, tests, and shell side effects. Use
+  `ctx_*` tools for derived facts, summaries, indexed docs, noisy output, and
+  memory/search workflows.
 - Sage registers `pi-fff` for file and content search in override mode by
   default. Use FFF-backed `find` for fuzzy path search, `grep` for content
   search, and `multi_grep` for OR-logic multi-pattern content search.
