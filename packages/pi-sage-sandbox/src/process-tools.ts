@@ -106,15 +106,15 @@ function splitCmdline(raw) {
 }
 
 async function readProcess(pid, tid = null) {
-  const base = tid === null ? `/proc/${pid}` : `/proc/${pid}/task/${tid}`;
-  const status = parseStatus(await readText(`${base}/status`));
+  const base = tid === null ? "/proc/" + pid : "/proc/" + pid + "/task/" + tid;
+  const status = parseStatus(await readText(base + "/status"));
   if (!status.Name) return null;
 
-  const cmdlineRaw = tid === null ? await readText(`${base}/cmdline`) : "";
+  const cmdlineRaw = tid === null ? await readText(base + "/cmdline") : "";
   const cmdline = splitCmdline(cmdlineRaw);
-  const comm = (await readText(`${base}/comm`)).trim() || status.Name;
+  const comm = (await readText(base + "/comm")).trim() || status.Name;
   const cwd = tid === null
-    ? await fs.readlink(`${base}/cwd`).catch(() => null)
+    ? await fs.readlink(base + "/cwd").catch(() => null)
     : null;
 
   return {
@@ -144,7 +144,7 @@ async function listProcesses() {
     if (process) entries.push(process);
 
     if (!params.includeThreads) continue;
-    const taskDir = `/proc/${pid}/task`;
+    const taskDir = "/proc/" + pid + "/task";
     if (!(await statExists(taskDir))) continue;
     const tasks = await fs.readdir(taskDir).catch(() => []);
     for (const tid of tasks) {
@@ -213,7 +213,8 @@ function splitCmdline(raw) {
   return raw.split("\0").filter(Boolean);
 }
 
-const status = await fs.readFile(`/proc/${params.pid}/status`, "utf8").catch(() => "");
+const procDir = "/proc/" + params.pid;
+const status = await fs.readFile(procDir + "/status", "utf8").catch(() => "");
 if (!status) {
   console.log(JSON.stringify({
     pid: params.pid,
@@ -225,8 +226,8 @@ if (!status) {
 }
 
 const name = /^Name:\s*(.+)$/m.exec(status)?.[1] ?? "";
-const cmdline = splitCmdline(await fs.readFile(`/proc/${params.pid}/cmdline`, "utf8").catch(() => ""));
-process.kill(params.pid, `SIG${params.signal}`);
+const cmdline = splitCmdline(await fs.readFile(procDir + "/cmdline", "utf8").catch(() => ""));
+process.kill(params.pid, "SIG" + params.signal);
 
 console.log(JSON.stringify({
   pid: params.pid,
