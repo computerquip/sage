@@ -39,14 +39,25 @@
       "python3",
       "py3-pip",
       "uv",
+      "chromium",
+      "nss",
+      "freetype",
+      "font-noto",
       "rust",
       "cargo"
     ]
   },
   "postBuild": {
+    "copy": [
+      {
+        "src": "install-crawl4ai-alpine.sh",
+        "dest": "/usr/local/bin/install-crawl4ai-alpine"
+      }
+    ],
     "commands": [
       "npm install -g pnpm @earendil-works/pi-coding-agent @earendil-works/gondolin",
-      "pip install --break-system-packages conan"
+      "pip install --break-system-packages 'conan==2.30.0'",
+      "/usr/local/bin/install-crawl4ai-alpine"
     ]
   }
 }

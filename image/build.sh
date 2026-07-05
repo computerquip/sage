@@ -51,19 +51,6 @@ for (const key of Object.keys(manifest.checksums ?? {})) {
 fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 EOF
 
-echo "Done. Verify the toolchain with:"
-echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec --vmm qemu -- git --version"
-echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec --vmm qemu -- node --version"
-echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec --vmm qemu -- pi --version"
-echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec --vmm qemu -- gondolin help"
-echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec --vmm qemu -- python3 --version"
-echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec --vmm qemu -- rustc --version"
-echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec --vmm qemu -- cargo --version"
-echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec --vmm qemu -- pnpm --version"
-echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec --vmm qemu -- cmake --version"
-echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec --vmm qemu -- ninja --version"
-echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec --vmm qemu -- clang --version"
-echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec --vmm qemu -- conan --version"
-echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec --vmm qemu -- qemu-system-x86_64 --version"
-echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec --vmm qemu -- qemu-img --version"
-echo "  GONDOLIN_GUEST_DIR=$OUTPUT_DIR gondolin exec --vmm qemu -- jq --version"
+echo "Done. Verify the image boots through Sage's q35 QEMU options with:"
+echo "  ./bin/sage --no-attach"
+echo "Raw 'gondolin exec --vmm qemu' may use a default machine type unsupported by this host."

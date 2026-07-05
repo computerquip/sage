@@ -35,7 +35,9 @@ architecture.
 - `packages/pi-sage-sandbox/src/provider-web-search.ts`: injects
   OpenAI-hosted web search into supported OpenAI Responses requests.
 - `packages/pi-sage-sandbox/src/web-fetch.ts`: structured HTTP(S) page
-  fetching through the VM.
+  fetching through the VM. `engine=auto` uses curl plus Readability/Turndown
+  for reliability; `engine=crawl4ai` uses browser-rendered Markdown when the VM
+  has enough memory.
 - `packages/pi-sage-sandbox/src/process-tools.ts`: VM process listing and
   signaling tools.
 - `packages/pi-sage-sandbox/src/instructions.ts`: prompt text injected into
@@ -70,7 +72,18 @@ branch. It refuses to merge if the user's current checkout is dirty.
 - Sage does not register a local search-engine scraper. URL discovery/current
   information can use OpenAI-hosted `web_search` when the active provider is
   OpenAI Responses. `web_fetch` is available for exact page contents through
-  the VM and is the intended place for future crawl4ai-backed retrieval work.
+  the VM; use `engine=curl` for exact/raw HTTP retrieval and `engine=crawl4ai`
+  when browser-rendered Markdown is specifically required.
+- crawl4ai is installed on Alpine via an intentional workaround in
+  `image/install-crawl4ai-alpine.sh`: Python Playwright is built from source,
+  patchright's manylinux wheel is retagged, and both bundled driver `node`
+  binaries are replaced with symlinks to Alpine's `/usr/bin/node`. The
+  `web_fetch` runner patches crawl4ai's browser launch args to use
+  `/usr/bin/chromium-browser`, avoiding Playwright's `/root` browser cache.
+- crawl4ai launches Chromium; keep the 256M VM default unless the user asks to
+  change it. `engine=crawl4ai` should use a larger `SAGE_VM_MEMORY`; the
+  default `engine=auto` avoids crawl4ai unless `SAGE_WEB_FETCH_AUTO_CRAWL4AI=1`
+  is set.
 - HTTP/HTTPS egress is host mediated and defaults to open via
   `SAGE_HTTP_ALLOWED_HOSTS=*`.
 - SSH git egress only works when the host has a valid `SSH_AUTH_SOCK` and the

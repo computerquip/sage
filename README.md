@@ -22,6 +22,8 @@ Clang/LLVM/lld, CMake, Ninja, Conan, pkgconf, gdb, and autotools/libtool. A
 live `pi` session routes filesystem/shell tool calls, structured file and
 process inspection, and web fetches through the VM. OpenAI Responses requests
 also receive the provider-hosted `web_search` tool.
+`web_fetch` defaults to curl plus Readability/Turndown for reliable low-memory
+fetches. Use `engine=crawl4ai` for browser-rendered extraction when needed.
 
 Known open items (see plan doc "Risks / open questions" for more):
 
@@ -43,6 +45,16 @@ Known open items (see plan doc "Risks / open questions" for more):
 - `image/build.sh` uses Gondolin's Podman container build path so
   `postBuild.commands` can run without `sudo`. Rootless Podman must be usable
   on the host.
+- crawl4ai is installed on Alpine with a deliberate Python Playwright
+  workaround: Playwright is built from source, patchright's manylinux wheel is
+  retagged, and both bundled driver `node` binaries are replaced with symlinks
+  to Alpine's `/usr/bin/node`. Runtime browser launches use Alpine's
+  `/usr/bin/chromium-browser` rather than Playwright's browser cache, because
+  `/root` is replaced with tmpfs at VM boot.
+- crawl4ai launches Chromium. The 256M VM default is kept for nested-session
+  practicality, and `web_fetch` does not use crawl4ai automatically at that
+  size. Forced `web_fetch` calls with `engine=crawl4ai` should use a larger
+  `SAGE_VM_MEMORY` value.
 
 ## Prerequisites
 
@@ -118,24 +130,14 @@ sage/
    ./image/build.sh
    ```
 
-   Verify the toolchain resolves inside the guest:
+   Verify the image boots through Sage's QEMU options:
 
    ```sh
-   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec --vmm qemu -- git --version
-   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec --vmm qemu -- node --version
-   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec --vmm qemu -- pi --version
-   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec --vmm qemu -- gondolin help
-   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec --vmm qemu -- rustc --version
-   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec --vmm qemu -- cargo --version
-   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec --vmm qemu -- pnpm --version
-   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec --vmm qemu -- cmake --version
-   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec --vmm qemu -- ninja --version
-   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec --vmm qemu -- clang --version
-   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec --vmm qemu -- conan --version
-   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec --vmm qemu -- qemu-system-x86_64 --version
-   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec --vmm qemu -- qemu-img --version
-   GONDOLIN_GUEST_DIR=.gondolin-image gondolin exec --vmm qemu -- jq --version
+   ./bin/sage --no-attach
    ```
+
+   Raw `gondolin exec --vmm qemu` uses Gondolin's default QEMU machine type,
+   which may not boot on hosts where Sage's `q35` override is required.
 
 5. Try it in any git repo:
 
