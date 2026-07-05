@@ -44,7 +44,14 @@
     ]
   },
   "postBuild": {
+    "copy": [
+      {
+        "src": "../tools/sage-fff/dist/sage-fff",
+        "dest": "/usr/local/bin/sage-fff"
+      }
+    ],
     "commands": [
+      "apk add --no-cache rust cargo && rustc -vV >/dev/null && sage-fff --help >/dev/null",
       "npm install -g pnpm @earendil-works/pi-coding-agent @earendil-works/gondolin",
       "pip install --break-system-packages 'conan==2.30.0'"
     ]

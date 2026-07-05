@@ -5,7 +5,8 @@ with read/write/edit/bash/`!` tool calls routed into a disposable
 [gondolin](https://gondolin.dev) QEMU VM. Sage also provides `process_list`
 and `process_signal` tools for structured VM process inspection, plus
 VM-backed `file_search` and `content_search` tools for bounded local file
-search. Web access is delegated to
+search, backed by a guest-installed `sage-fff` wrapper around FFF. Web access
+is delegated to
 [`pi-web-access`](https://github.com/nicobailon/pi-web-access), which registers
 `web_search` for discovery/current information and `fetch_content` for exact
 HTTP(S) page contents. `sage install-pi-packages` installs host-side Pi
@@ -52,6 +53,8 @@ Known open items (see plan doc "Risks / open questions" for more):
 - `image/build.sh` uses Gondolin's Podman container build path so
   `postBuild.commands` can run without `sudo`. Rootless Podman must be usable
   on the host.
+- `image/build.sh` first compiles `tools/sage-fff` in an Alpine container and
+  copies the resulting binary into the guest image as `/usr/local/bin/sage-fff`.
 - `context-mode` depends on `better-sqlite3`. If Pi/npm reports blocked install
   scripts for `context-mode` or `better-sqlite3`, its SQLite-backed memory may
   not work until those package scripts are approved or rebuilt in the Pi
@@ -83,6 +86,7 @@ sage/
 │     ├─ file-search.ts         # VM-backed path/tree search
 │     ├─ content-search.ts      # VM-backed content search
 │     └─ config.ts              # image dir + network policy resolution
+├─ tools/sage-fff/              # Rust FFF JSON CLI installed in the guest image
 ├─ image/
 │  ├─ build-config.json        # gondolin custom image build config
 │  └─ build.sh                 # wrapper around `gondolin build`
@@ -134,8 +138,9 @@ sage/
    Override with `SAGE_RELEASE_REPO`, `SAGE_IMAGE_VERSION`,
    `SAGE_IMAGE_URL`, or `SAGE_IMAGE_SHA256_URL`.
 
-4. Or build the custom guest image locally (bakes in git/node/python/rust/C++,
-   pi/gondolin, jq, and QEMU tooling):
+4. Or build the custom guest image locally (first compiles `sage-fff`, then
+   bakes in git/node/python/rust/C++, pi/gondolin, jq, QEMU tooling, and the
+   search helper):
 
    ```sh
    ./image/build.sh

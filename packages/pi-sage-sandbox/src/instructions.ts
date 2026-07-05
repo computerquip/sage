@@ -62,6 +62,8 @@ Execution environments:
 - Built-in host file tools are disabled for Sage sessions. If package guidance
   mentions host-side \`find\`, \`grep\`, \`ls\`, or similar file tools, ignore
   that guidance and use the VM-backed Sage tools instead.
+- \`file_search\` uses FFF fuzzy/glob path search and bounded tree inspection.
+  \`content_search\` uses the same guest search helper for content grep.
 - Web access tools are provided by \`pi-web-access\`. Context-memory tools,
   when present, are provided by \`context-mode\`.
 - If context-mode guidance suggests \`ctx_execute_file\` for "read/edit files",

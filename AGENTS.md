@@ -40,6 +40,12 @@ architecture.
   bounded tree inspection.
 - `packages/pi-sage-sandbox/src/content-search.ts`: VM-backed bounded file
   content search.
+- `tools/sage-fff`: Rust JSON CLI around FFF, installed into the guest image
+  and used by `file_search` / `content_search`.
+- `tools/sage-fff/build-alpine.sh`: builds the `sage-fff` binary in an Alpine
+  container before `image/build.sh` runs Gondolin image assembly. Do not move
+  this compile back into `postBuild.commands`; Gondolin's APK extractor/chroot
+  path has not reliably exposed `rustc` there.
 - `packages/pi-sage-sandbox/src/process-tools.ts`: VM process listing and
   signaling tools.
 - `packages/pi-sage-sandbox/src/instructions.ts`: prompt text injected into
@@ -83,8 +89,10 @@ branch. It refuses to merge if the user's current checkout is dirty.
 - Sage launches Pi with built-in tools disabled. Do not re-enable host-side
   `find`, `grep`, `ls`, or package-based local file search in Sage sessions
   unless the user explicitly changes the sandboxing model.
-- Use `file_search` for fuzzy path search and bounded tree inspection. Use
-  `content_search` for local content search. Both execute inside the VM.
+- Use `file_search` for FFF fuzzy path search, glob search, and bounded tree
+  inspection. Use `content_search` for local content search. Both execute
+  inside the VM through the guest `sage-fff` binary; cold VM sessions rebuild
+  their in-memory search index on first use.
 - Sage registers `pi-web-access` for web tooling. Use `web_search` for URL
   discovery/current information and `fetch_content` for exact page contents.
 - Sage registers `context-mode` for context memory and `ctx_*` tooling. It
@@ -120,6 +128,11 @@ git diff --check
 The workspace has not consistently had `typescript` installed, so `pnpm exec
 tsc -p packages/pi-sage-sandbox/tsconfig.json` may fail with `tsc` missing.
 Use it when available, but do not assume it exists.
+
+The host has also not consistently had Rust installed. `tools/sage-fff` is
+compiled by `tools/sage-fff/build-alpine.sh` in an Alpine container before
+Gondolin assembles the image; use host-side Cargo checks when available, but do
+not assume `cargo` exists.
 
 Commands that talk to the real Herdr server, such as `./bin/sage list`,
 `./bin/sage status latest`, or `./bin/sage diff --stat latest`, may need to run

@@ -30,6 +30,9 @@ if ! command -v gondolin >/dev/null 2>&1; then
   exit 1
 fi
 
+echo "Building sage-fff helper for the guest image"
+sh "$REPO_ROOT/tools/sage-fff/build-alpine.sh"
+
 echo "Building sage guest image -> $OUTPUT_DIR"
 gondolin build \
   --config "$SCRIPT_DIR/build-config.json" \

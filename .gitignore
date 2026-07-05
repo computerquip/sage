@@ -1,5 +1,7 @@
 node_modules/
 .gondolin-image/
 dist/
+tools/sage-fff/dist/
+tools/sage-fff/target/
 *.log
 .DS_Store

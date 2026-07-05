@@ -14,7 +14,7 @@ type FileSearchParams = {
   mode: "tree" | "search";
   path?: string;
   query?: string;
-  match?: "substring" | "glob" | "regex";
+  match?: "fuzzy" | "glob";
   type?: "any" | "file" | "directory";
   maxDepth?: number;
   maxResults?: number;
@@ -22,7 +22,6 @@ type FileSearchParams = {
 };
 
 const DEFAULT_TREE_DEPTH = 3;
-const DEFAULT_SEARCH_DEPTH = 8;
 const MAX_MAX_DEPTH = 25;
 const DEFAULT_MAX_RESULTS = 200;
 const MAX_MAX_RESULTS = 1_000;
@@ -48,8 +47,8 @@ const fileSearchParameters = {
     },
     match: {
       type: "string",
-      enum: ["substring", "glob", "regex"],
-      description: "Search matching mode. Defaults to substring.",
+      enum: ["fuzzy", "glob"],
+      description: "Search matching mode. Defaults to FFF fuzzy path search.",
     },
     type: {
       type: "string",
@@ -60,7 +59,7 @@ const fileSearchParameters = {
       type: "number",
       minimum: 0,
       maximum: MAX_MAX_DEPTH,
-      description: `Maximum traversal depth. Defaults to ${DEFAULT_TREE_DEPTH} for tree and ${DEFAULT_SEARCH_DEPTH} for search.`,
+      description: `Maximum traversal depth for tree mode. Defaults to ${DEFAULT_TREE_DEPTH}.`,
     },
     maxResults: {
       type: "number",
@@ -120,7 +119,7 @@ function buildFileSearchScript(
   const basePath = resolveGuestBasePath(localCwd, params.path);
   const maxDepth = clampNumber(
     params.maxDepth,
-    mode === "tree" ? DEFAULT_TREE_DEPTH : DEFAULT_SEARCH_DEPTH,
+    DEFAULT_TREE_DEPTH,
     MAX_MAX_DEPTH,
   );
   const maxResults = Math.max(
@@ -131,198 +130,65 @@ function buildFileSearchScript(
   if (mode === "search" && !query) {
     throw new Error("file_search query is required when mode=search");
   }
-
-  const nodeScript = String.raw`
-const fs = await import("node:fs/promises");
-const path = await import("node:path");
-
-const params = JSON.parse(process.argv[1]);
-const workspace = "/workspace";
-const ignoredDirs = new Set([".git", "node_modules", ".hg", ".svn"]);
-
-function toPosix(value) {
-  return value.split(path.sep).join(path.posix.sep);
-}
-
-function relativeName(fullPath) {
-  const rel = path.posix.relative(workspace, toPosix(fullPath));
-  return rel || ".";
-}
-
-function isHiddenName(name) {
-  return name.startsWith(".") && name !== "." && name !== "..";
-}
-
-function shouldSkipDir(name) {
-  if (ignoredDirs.has(name)) return true;
-  return !params.includeHidden && isHiddenName(name);
-}
-
-function entryType(dirent) {
-  if (dirent.isDirectory()) return "directory";
-  if (dirent.isFile()) return "file";
-  if (dirent.isSymbolicLink()) return "symlink";
-  return "other";
-}
-
-function typeAllowed(type) {
-  return params.type === "any" || params.type === type;
-}
-
-function escapeRegex(value) {
-  return value.replace(/[|\\{}()[\]^$+?.]/g, "\\$&");
-}
-
-function globToRegex(pattern) {
-  let out = "";
-  for (let i = 0; i < pattern.length; i += 1) {
-    const ch = pattern[i];
-    if (ch === "*") {
-      if (pattern[i + 1] === "*") {
-        out += ".*";
-        i += 1;
-      } else {
-        out += "[^/]*";
-      }
-    } else if (ch === "?") {
-      out += "[^/]";
-    } else {
-      out += escapeRegex(ch);
-    }
-  }
-  return new RegExp(out, "i");
-}
-
-function makeMatcher() {
-  if (params.mode !== "search") return () => true;
-  if (params.match === "regex") {
-    const re = new RegExp(params.query, "i");
-    return (entry) => re.test(entry.path) || re.test(entry.name);
-  }
-  if (params.match === "glob") {
-    const re = globToRegex(params.query);
-    return (entry) => re.test(entry.path) || re.test(entry.name);
-  }
-  const needle = params.query.toLowerCase();
-  return (entry) =>
-    entry.path.toLowerCase().includes(needle) ||
-    entry.name.toLowerCase().includes(needle);
-}
-
-async function readSorted(dir) {
-  const entries = await fs.readdir(dir, { withFileTypes: true });
-  return entries.sort((a, b) => {
-    const ad = a.isDirectory() ? 0 : 1;
-    const bd = b.isDirectory() ? 0 : 1;
-    if (ad !== bd) return ad - bd;
-    return a.name.localeCompare(b.name);
-  });
-}
-
-async function walk(basePath) {
-  const results = [];
-  const matcher = makeMatcher();
-  let truncated = false;
-
-  async function visit(dir, depth) {
-    if (results.length >= params.maxResults) {
-      truncated = true;
-      return;
-    }
-
-    let entries;
-    try {
-      entries = await readSorted(dir);
-    } catch (err) {
-      results.push({
-        path: relativeName(dir),
-        type: "error",
-        depth,
-        error: err instanceof Error ? err.message : String(err),
-      });
-      return;
-    }
-
-    for (const dirent of entries) {
-      if (ignoredDirs.has(dirent.name)) continue;
-      if (!params.includeHidden && isHiddenName(dirent.name)) continue;
-
-      const fullPath = path.posix.join(toPosix(dir), dirent.name);
-      const type = entryType(dirent);
-      const entry = {
-        path: relativeName(fullPath),
-        name: dirent.name,
-        type,
-        depth,
-      };
-
-      if (typeAllowed(type) && matcher(entry)) {
-        results.push(entry);
-        if (results.length >= params.maxResults) {
-          truncated = true;
-          return;
-        }
-      }
-
-      if (dirent.isDirectory() && depth < params.maxDepth && !shouldSkipDir(dirent.name)) {
-        await visit(fullPath, depth + 1);
-        if (results.length >= params.maxResults) return;
-      }
-    }
-  }
-
-  const stat = await fs.lstat(basePath);
-  if (!stat.isDirectory()) {
-    const entry = {
-      path: relativeName(basePath),
-      name: path.posix.basename(basePath),
-      type: stat.isFile() ? "file" : stat.isSymbolicLink() ? "symlink" : "other",
-      depth: 0,
-    };
-    return {
-      results: typeAllowed(entry.type) && matcher(entry) ? [entry] : [],
-      truncated: false,
-    };
-  }
-
-  await visit(basePath, 0);
-  return { results, truncated };
-}
-
-const { results, truncated } = await walk(params.basePath);
-console.log(JSON.stringify({
-  mode: params.mode,
-  basePath: params.basePath,
-  displayBasePath: relativeName(params.basePath),
-  query: params.query || undefined,
-  match: params.mode === "search" ? params.match : undefined,
-  type: params.type,
-  maxDepth: params.maxDepth,
-  maxResults: params.maxResults,
-  includeHidden: params.includeHidden,
-  truncated,
-  results,
-}, null, 2));
-`;
+  const args =
+    mode === "tree"
+      ? [
+          "sage-fff",
+          "--base",
+          GUEST_WORKSPACE,
+          "tree",
+          "--path",
+          basePath,
+          "--max-depth",
+          String(maxDepth),
+          "--limit",
+          String(maxResults),
+          "--type",
+          params.type ?? "any",
+          ...(params.includeHidden === true ? ["--include-hidden"] : []),
+        ]
+      : [
+          "sage-fff",
+          "--base",
+          GUEST_WORKSPACE,
+          "find",
+          "--query",
+          query,
+          "--path",
+          guestConstraintPath(localCwd, params.path),
+          "--mode",
+          findMode(params),
+          "--limit",
+          String(maxResults),
+        ];
 
   return [
     "set -eu",
-    "node --input-type=module -e " +
-      shQuote(nodeScript) +
-      " " +
-      shQuote(
-        JSON.stringify({
-          mode,
-          basePath,
-          query,
-          match: params.match ?? "substring",
-          type: params.type ?? "any",
-          maxDepth,
-          maxResults,
-          includeHidden: params.includeHidden === true,
-        }),
-      ),
+    [
+      "command -v sage-fff >/dev/null 2>&1 ||",
+      "{ echo 'sage-fff is not installed in the Sage guest image; rebuild or reinstall the image.' >&2; exit 127; }",
+    ].join(" "),
+    args.map(shQuote).join(" "),
   ].join("\n");
+}
+
+function findMode(params: FileSearchParams): string {
+  if (params.match === "glob" && params.type !== "directory") return "glob";
+  if (params.type === "file") return "files";
+  if (params.type === "directory") return "directories";
+  return "mixed";
+}
+
+export function guestConstraintPath(
+  localCwd: string,
+  rawPath: string | undefined,
+) {
+  const guestPath = resolveGuestBasePath(localCwd, rawPath);
+  if (guestPath === GUEST_WORKSPACE) return ".";
+  if (guestPath.startsWith(`${GUEST_WORKSPACE}/`)) {
+    return guestPath.slice(GUEST_WORKSPACE.length + 1);
+  }
+  return guestPath;
 }
 
 export function createFileSearchTool(
@@ -338,7 +204,7 @@ export function createFileSearchTool(
       "Search workspace paths and inspect bounded directory trees without using host file tools.",
     promptGuidelines: [
       "Use mode=tree to inspect project layout before reading files.",
-      "Use mode=search to find filenames or directories by substring, glob, or regex.",
+      "Use mode=search to find filenames or directories with FFF fuzzy search or glob search.",
       "Keep maxDepth and maxResults bounded; use follow-up searches for narrower areas.",
     ],
     parameters: fileSearchParameters as any,
