@@ -96,6 +96,7 @@ sage/
 │     ├─ file-search.ts         # VM-backed path/tree search
 │     ├─ content-search.ts      # VM-backed content search
 │     └─ config.ts              # image dir + network policy resolution
+├─ packages/pi-sage-memory/    # pi extension: host-side durable memory tools
 ├─ tools/sage-fff/              # Rust FFF JSON CLI installed in the guest image
 ├─ image/
 │  ├─ build-config.json        # gondolin custom image build config
@@ -249,6 +250,20 @@ Env vars (all optional):
   `${PI_CODING_AGENT_DIR:-~/.pi/agent}/npm/node_modules/@spences10/pi-context/dist/index.js`).
 - `SAGE_CONTEXT_DB` — explicit `pi-context` SQLite database path. If unset,
   Sage exports `MY_PI_CONTEXT_DB` to `${SAGE_CACHE_DIR:-${XDG_CACHE_HOME:-~/.cache}/sage}/context.db`.
+- `SAGE_MEMORY_EXTENSION` — explicit Sage memory extension path (default:
+  `$SAGE_HOME/packages/pi-sage-memory/index.ts`).
+- `SAGE_MEMORY_DISABLE` — set to `1`, `true`, or `yes` to disable durable
+  memory.
+- `SAGE_MEMORY_DIR` — durable memory database directory (default:
+  `${SAGE_CACHE_DIR:-${XDG_CACHE_HOME:-~/.cache}/sage}/memory`).
+- `SAGE_MEMORY_USER_ID` / `SAGE_MEMORY_AGENT_ID` — durable memory scope
+  identifiers (defaults: `$USER` and `sage`).
+- `SAGE_MEMORY_FASTEMBED_CACHE_DIR` — cache directory for the local FastEmbed
+  model (default: `${SAGE_CACHE_DIR:-${XDG_CACHE_HOME:-~/.cache}/sage}/memory/fastembed`).
+- `SAGE_MEMORY_EMBED_MODEL` — local FastEmbed embedding model (default:
+  `fast-bge-small-en-v1.5`, also accepted as `BAAI/bge-small-en-v1.5`).
+- `SAGE_MEMORY_EMBED_DIMENSION` — local embedding dimension (default: `384`;
+  must match the configured model).
 - `SAGE_WEB_ACCESS_PACKAGE` — Pi package source for web tools (default
   `npm:pi-web-access@0.13.0`; empty skips `sage install-pi-packages`).
 - `SAGE_WEB_ACCESS_EXTENSION` — explicit `pi-web-access` extension path
@@ -282,20 +297,27 @@ Env vars (all optional):
   directories (default:
   `${SAGE_CACHE_DIR:-${XDG_CACHE_HOME:-~/.cache}/sage}/scratch`).
 
-## Durable memory provider policy
+## Durable memory
 
-Durable memory is planned but not enabled yet. When implemented, Sage should
-use Pi's active model provider as the default signal, not host environment
-guessing alone.
+Sage loads an in-repo `pi-sage-memory` extension that provides
+`memory_status`, `memory_add`, `memory_search`, `memory_get`, and
+`memory_delete`. Memory is host-side shared agent state, not VM-routed
+filesystem/process state. It is backed by Mem0 OSS with Sage-scoped SQLite
+databases under `SAGE_MEMORY_DIR`.
 
-- OpenAI: use the memory library's native OpenAI LLM and embedding providers.
-- Bedrock: use LangChain's Bedrock integration for the LLM and embedder. Sage
-  should pin the current best Bedrock embedding model and its vector dimension
-  in code/config, then update that pin during normal maintenance as AWS model
-  availability changes.
-- If the provider is ambiguous or unsupported, memory should fail with an
-  actionable configuration error. Do not silently fall back to lower-quality
-  local embeddings or to another commercial provider.
+Memory embeddings are local-only through FastEmbed via Mem0's `langchain`
+embedder adapter. The default embedder is
+FastEmbed's default `BAAI/bge-small-en-v1.5` at 384 dimensions. First use may
+download the FastEmbed model into `SAGE_MEMORY_FASTEMBED_CACHE_DIR`; after
+that, embedding is local CPU inference. Set `SAGE_MEMORY_EMBED_MODEL` and
+`SAGE_MEMORY_EMBED_DIMENSION` together for another mapped FastEmbed model.
+
+Normal `memory_add` calls store exactly the provided fact with `infer=false`,
+so no hosted model entitlement is required and no chat model is pulled.
+`memory_add infer=true` is intentionally disabled until Sage has a local LLM
+policy for memory extraction. Durable memory should fail loudly when the local
+embedder or configured model is unavailable rather than falling back to hosted
+embeddings.
 
 ## Tearing down a session
 

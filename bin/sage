@@ -46,6 +46,7 @@ if [ "${1:-}" = "__agent" ]; then
   fi
 
   SAGE_SANDBOX_EXTENSION="$SAGE_HOME/packages/pi-sage-sandbox/index.ts"
+  SAGE_MEMORY_EXTENSION="${SAGE_MEMORY_EXTENSION:-$SAGE_HOME/packages/pi-sage-memory/index.ts}"
   PI_AGENT_DIR="${PI_CODING_AGENT_DIR:-${HOME:-}/.pi/agent}"
   SAGE_CONTEXT_EXTENSION="${SAGE_CONTEXT_EXTENSION:-$PI_AGENT_DIR/npm/node_modules/@spences10/pi-context/dist/index.js}"
   SAGE_WEB_ACCESS_EXTENSION="${SAGE_WEB_ACCESS_EXTENSION:-$PI_AGENT_DIR/npm/node_modules/pi-web-access/index.ts}"
@@ -65,77 +66,22 @@ if [ "${1:-}" = "__agent" ]; then
     fi
   fi
 
-  HAS_CONTEXT_EXTENSION=false
-  HAS_WEB_ACCESS_EXTENSION=false
-  HAS_WEB_ACCESS_SKILLS=false
+  set -- --no-builtin-tools --no-extensions --no-skills \
+    -e "$SAGE_SANDBOX_EXTENSION" \
+    -e "$SAGE_MEMORY_EXTENSION" \
+    "$@"
 
   if [ -f "$SAGE_CONTEXT_EXTENSION" ]; then
-    HAS_CONTEXT_EXTENSION=true
+    set -- -e "$SAGE_CONTEXT_EXTENSION" "$@"
   fi
   if [ -f "$SAGE_WEB_ACCESS_EXTENSION" ]; then
-    HAS_WEB_ACCESS_EXTENSION=true
+    set -- -e "$SAGE_WEB_ACCESS_EXTENSION" "$@"
   fi
   if [ -d "$SAGE_WEB_ACCESS_SKILLS" ]; then
-    HAS_WEB_ACCESS_SKILLS=true
+    set -- --skill "$SAGE_WEB_ACCESS_SKILLS" "$@"
   fi
 
-  if [ "$HAS_CONTEXT_EXTENSION" = true ] && [ "$HAS_WEB_ACCESS_EXTENSION" = true ] && [ "$HAS_WEB_ACCESS_SKILLS" = true ]; then
-    exec pi --no-builtin-tools --no-extensions --no-skills \
-      -e "$SAGE_SANDBOX_EXTENSION" \
-      -e "$SAGE_CONTEXT_EXTENSION" \
-      -e "$SAGE_WEB_ACCESS_EXTENSION" \
-      --skill "$SAGE_WEB_ACCESS_SKILLS" \
-      "$@"
-  fi
-
-  if [ "$HAS_CONTEXT_EXTENSION" = true ] && [ "$HAS_WEB_ACCESS_EXTENSION" = true ]; then
-    exec pi --no-builtin-tools --no-extensions --no-skills \
-      -e "$SAGE_SANDBOX_EXTENSION" \
-      -e "$SAGE_CONTEXT_EXTENSION" \
-      -e "$SAGE_WEB_ACCESS_EXTENSION" \
-      "$@"
-  fi
-
-  if [ "$HAS_CONTEXT_EXTENSION" = true ] && [ "$HAS_WEB_ACCESS_SKILLS" = true ]; then
-    exec pi --no-builtin-tools --no-extensions --no-skills \
-      -e "$SAGE_SANDBOX_EXTENSION" \
-      -e "$SAGE_CONTEXT_EXTENSION" \
-      --skill "$SAGE_WEB_ACCESS_SKILLS" \
-      "$@"
-  fi
-
-  if [ "$HAS_WEB_ACCESS_EXTENSION" = true ] && [ "$HAS_WEB_ACCESS_SKILLS" = true ]; then
-    exec pi --no-builtin-tools --no-extensions --no-skills \
-      -e "$SAGE_SANDBOX_EXTENSION" \
-      -e "$SAGE_WEB_ACCESS_EXTENSION" \
-      --skill "$SAGE_WEB_ACCESS_SKILLS" \
-      "$@"
-  fi
-
-  if [ "$HAS_CONTEXT_EXTENSION" = true ]; then
-    exec pi --no-builtin-tools --no-extensions --no-skills \
-      -e "$SAGE_SANDBOX_EXTENSION" \
-      -e "$SAGE_CONTEXT_EXTENSION" \
-      "$@"
-  fi
-
-  if [ "$HAS_WEB_ACCESS_EXTENSION" = true ]; then
-    exec pi --no-builtin-tools --no-extensions --no-skills \
-      -e "$SAGE_SANDBOX_EXTENSION" \
-      -e "$SAGE_WEB_ACCESS_EXTENSION" \
-      "$@"
-  fi
-
-  if [ "$HAS_WEB_ACCESS_SKILLS" = true ]; then
-    exec pi --no-builtin-tools --no-extensions --no-skills \
-      -e "$SAGE_SANDBOX_EXTENSION" \
-      --skill "$SAGE_WEB_ACCESS_SKILLS" \
-      "$@"
-  fi
-
-  exec pi --no-builtin-tools --no-extensions --no-skills \
-    -e "$SAGE_SANDBOX_EXTENSION" \
-    "$@"
+  exec pi "$@"
 fi
 
 HERDR="${HERDR_BIN_PATH:-herdr}"
@@ -314,6 +260,12 @@ Environment:
   SAGE_CONTEXT_PACKAGE     Pi package for artifact sidecar; empty skips install
   SAGE_CONTEXT_EXTENSION   explicit pi-context extension path
   SAGE_CONTEXT_DB          explicit pi-context SQLite database path
+  SAGE_MEMORY_EXTENSION    explicit Sage memory extension path
+  SAGE_MEMORY_DIR          durable memory database directory
+  SAGE_MEMORY_FASTEMBED_CACHE_DIR cache directory for local memory model
+  SAGE_MEMORY_EMBED_MODEL  local FastEmbed memory embedding model
+  SAGE_MEMORY_EMBED_DIMENSION embedding dimension for memory model
+  SAGE_MEMORY_DISABLE      disable durable memory tools when set
   SAGE_WEB_ACCESS_PACKAGE  Pi package for web search/fetch; empty skips install
   SAGE_WEB_ACCESS_EXTENSION explicit pi-web-access extension path
   SAGE_WEB_ACCESS_SKILLS   explicit pi-web-access skills directory

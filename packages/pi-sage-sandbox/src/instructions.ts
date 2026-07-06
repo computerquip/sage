@@ -63,6 +63,8 @@ Choose the smallest tool that answers the question without flooding context:
 | Export a stored artifact to a file for local processing | \`context_export\` |
 | Discover current URLs or web information | \`web_search\` |
 | Fetch exact known page contents | \`fetch_content\` |
+| Search durable user/project memory | \`memory_search\` |
+| Store durable user/project memory | \`memory_add\` |
 | Inspect VM processes | \`process_list\` / \`process_signal\` |
 
 Execution environments:
@@ -77,6 +79,11 @@ Execution environments:
   \`web_search\`, and \`fetch_content\`. The \`context_*\` tools are an artifact
   sidecar for oversized VM tool output. They search/retrieve already-captured
   output; they do not execute commands or inspect live local files.
+- Host-side Sage memory tools: \`memory_status\`, \`memory_add\`,
+  \`memory_search\`, \`memory_get\`, and \`memory_delete\`. These are durable
+  cross-session memory tools backed by Mem0 and a Sage-scoped SQLite store.
+  Use them for stable user preferences, project facts, and prior decisions.
+  Do not store secrets, credentials, private keys, or transient command output.
 - Built-in host file tools are disabled for Sage sessions. If package guidance
   mentions host-side \`find\`, \`grep\`, \`ls\`, or similar file tools, ignore
   that guidance and use the VM-backed Sage tools instead.
@@ -84,6 +91,12 @@ Execution environments:
   \`content_search\` uses the same guest search helper for content grep.
 - Artifact sidecar tools are provided by \`@spences10/pi-context\`. Web access
   tools are provided by \`pi-web-access\`.
+- Durable memory embeddings are local-only through FastEmbed via Mem0's
+  \`langchain\` embedder adapter. Normal \`memory_add\` stores the supplied fact
+  directly with \`infer=false\`. \`memory_add infer=true\` is intentionally
+  disabled until Sage has a local LLM policy for memory extraction. If
+  FastEmbed or the configured local model is unavailable, report that directly
+  instead of attempting a hosted embedding fallback.
 
 ## Returning Work To The User
 

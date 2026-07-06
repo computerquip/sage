@@ -37,10 +37,10 @@ architecture.
   has `install-pi-packages`, which installs `@spences10/pi-context` and
   `pi-web-access` into Pi's package cache. Sage launches Pi with global
   extension/skill discovery disabled, then explicitly loads the Sage extension,
-  the installed `@spences10/pi-context` extension, and the installed
-  `pi-web-access` extension/skills by path. Do not re-enable global package
-  discovery to pick up these tools; that can reintroduce unrelated host-side
-  packages.
+  the in-repo `pi-sage-memory` extension, the installed `@spences10/pi-context`
+  extension, and the installed `pi-web-access` extension/skills by path. Do not
+  re-enable global package discovery to pick up these tools; that can
+  reintroduce unrelated host-side packages.
 - `packages/pi-sage-sandbox/src/config.ts`: image path, scratch mount path,
   QEMU options, VM memory and CPU defaults, HTTP/SSH egress policy.
 - `packages/pi-sage-sandbox/src/gondolin-ops.ts`: adapters for pi's filesystem
@@ -60,6 +60,12 @@ architecture.
   signaling tools.
 - `packages/pi-sage-sandbox/src/instructions.ts`: prompt text injected into
   Sage pi sessions so agents understand the VM/worktree model.
+- `packages/pi-sage-memory/index.ts`: host-side durable memory tools backed by
+  Mem0. This is not VM-routed because durable memory is shared agent state, not
+  sandbox file/process state. Mem0's TypeScript package currently does not
+  expose the Python package's native FastEmbed provider; Sage uses Mem0's
+  `langchain` embedder adapter with a small local object that implements
+  `embedQuery` and `embedDocuments` by calling `fastembed`.
 - `image/build-config.json`, `image/build.sh`, `image/package-release.sh`:
   custom Gondolin image build and release packaging.
 - `install.sh`: installs/links the host `sage` command.
@@ -127,14 +133,30 @@ branch. It refuses to merge if the user's current checkout is dirty.
   `context_search`, and retrieved by `context_get` with neighboring chunks.
 - Sage registers `pi-web-access` for web tooling. Use `web_search` for URL
   discovery/current information and `fetch_content` for exact page contents.
-- Durable memory is not implemented yet. When it is added, keep provider
-  selection explicit and fail closed. Use Pi's `ExtensionContext.model` as the
-  default provider signal when `SAGE_MEMORY_PROVIDER` is unset. For OpenAI, use
-  Mem0's native OpenAI LLM/embedder providers. For Bedrock, use Mem0's
-  LangChain provider with `@langchain/aws`; Sage should maintain a pinned
-  current best Bedrock embedding model/dimension in its own config instead of
-  silently falling back to a local or OpenAI embedder. If both OpenAI and
-  Bedrock are plausible, require `SAGE_MEMORY_PROVIDER`.
+- Sage registers `pi-sage-memory` for durable memory. Tools are
+  `memory_status`, `memory_add`, `memory_search`, `memory_get`, and
+  `memory_delete`. Memory is host-side by design because it is shared agent
+  state, not sandbox filesystem/process state. Do not store secrets,
+  credentials, private keys, or transient command output.
+- Durable memory embeddings are local-only through FastEmbed via Mem0's
+  `langchain` embedder adapter. The default model is
+  FastEmbed's default `BAAI/bge-small-en-v1.5` / `fast-bge-small-en-v1.5` at
+  384 dimensions; if changing it, update `SAGE_MEMORY_EMBED_MODEL` and
+  `SAGE_MEMORY_EMBED_DIMENSION` together. Normal `memory_add` uses
+  `infer=false` and stores the supplied fact directly. `memory_add infer=true`
+  is intentionally disabled until Sage has a local LLM policy for memory
+  extraction. Do not add hosted embedding fallbacks; fail loudly when
+  FastEmbed or the local model is unavailable.
+- The FastEmbed model is downloaded on first use into
+  `SAGE_MEMORY_FASTEMBED_CACHE_DIR` (default under the Sage cache directory).
+  First-use `memory_add`/`memory_search` therefore needs network access unless
+  the model is already cached. If initialization fails, Sage clears the cached
+  FastEmbed promise so a later tool call can retry after the cache/network issue
+  is fixed.
+- `fastembed` depends on `onnxruntime-node`; `pnpm-workspace.yaml` must keep
+  `allowBuilds.onnxruntime-node: true`. The code sets FastEmbed's execution
+  provider to CPU even though the upstream postinstall may download ONNX runtime
+  assets that mention CUDA/TensorRT.
 - Prefer `read` when exact file text is needed for quoting or editing. Prefer
   `file_search` and `content_search` for bounded local exploration before
   reading large files. Actual edits still use `read` plus `edit`/`write`.
@@ -161,11 +183,23 @@ sh -n bin/sage
 node --check packages/pi-sage-sandbox/index.ts
 node --check packages/pi-sage-sandbox/src/instructions.ts
 pnpm exec tsc -p packages/pi-sage-sandbox/tsconfig.json
+pnpm exec tsc -p packages/pi-sage-memory/tsconfig.json
 git diff --check
 ```
 
 `typescript` and `@types/node` are root dev dependencies, so the TypeScript
 check should work after `pnpm install`.
+
+Durable memory smoke test:
+
+```sh
+env SAGE_MEMORY_DIR=/tmp/sage-memory-smoke \
+  SAGE_MEMORY_FASTEMBED_CACHE_DIR=/tmp/sage-memory-fastembed-cache \
+  node -e 'const tools=[]; const mod=await import("./packages/pi-sage-memory/index.ts"); mod.default({registerTool:t=>tools.push(t)}); const call=async(name,params)=>{ const tool=tools.find(t=>t.name===name); const result=await tool.execute(name,params,undefined,undefined,{}); console.log(`--- ${name} ---`); console.log(result.content[0].text); }; await call("memory_add",{text:"Sage memory smoke test fact.",scope:"global"}); await call("memory_search",{query:"Sage memory smoke",scope:"global",topK:3});'
+```
+
+Run this outside the network sandbox or with a pre-populated
+`SAGE_MEMORY_FASTEMBED_CACHE_DIR` when testing a fresh cache.
 
 The host has also not consistently had Rust installed. `tools/sage-fff` is
 compiled by `tools/sage-fff/build-alpine.sh` in an Alpine container before

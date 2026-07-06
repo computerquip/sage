@@ -10,3 +10,5 @@ allowBuilds:
   cpu-features: true
   protobufjs: false
   '@google/genai': false
+  better-sqlite3: true
+  onnxruntime-node: true

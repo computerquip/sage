@@ -1,0 +1,17 @@
+{
+  "name": "pi-sage-memory",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Pi extension that adds Sage durable memory tools",
+  "type": "module",
+  "main": "index.ts",
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "^0.80.3",
+    "better-sqlite3": "^12.11.1",
+    "fastembed": "^2.1.0",
+    "mem0ai": "3.0.13"
+  },
+  "engines": {
+    "node": ">=24.15.0"
+  }
+}
