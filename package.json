@@ -4,9 +4,13 @@
   "version": "0.1.0",
   "description": "herdr + pi + gondolin sandboxed autonomous agent setup",
   "engines": {
-    "node": ">=23.6.0"
+    "node": ">=24.15.0"
   },
   "scripts": {
     "build:image": "sh image/build.sh"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.0",
+    "typescript": "^6.0.3"
   }
 }

@@ -263,7 +263,13 @@ export function createProcessListTool(
     ],
     parameters: processListParameters as any,
     executionMode: "parallel",
-    async execute(_id, params, signal, _onUpdate, ctx): Promise<AgentToolResult> {
+    async execute(
+      _id,
+      params,
+      signal,
+      _onUpdate,
+      ctx,
+    ): Promise<AgentToolResult<undefined>> {
       const vm = await vmProvider(ctx);
       const script = buildProcessListScript(params as ProcessListParams);
       const result = await vm.exec(["/bin/bash", "-lc", script], { signal });
@@ -273,7 +279,10 @@ export function createProcessListTool(
         throw new Error(output || `process_list failed (${result.exitCode})`);
       }
 
-      return { content: [{ type: "text", text: output || "(no output)" }] };
+      return {
+        content: [{ type: "text", text: output || "(no output)" }],
+        details: undefined,
+      };
     },
   };
 }
@@ -294,7 +303,13 @@ export function createProcessSignalTool(
     ],
     parameters: processSignalParameters as any,
     executionMode: "parallel",
-    async execute(_id, params, signal, _onUpdate, ctx): Promise<AgentToolResult> {
+    async execute(
+      _id,
+      params,
+      signal,
+      _onUpdate,
+      ctx,
+    ): Promise<AgentToolResult<undefined>> {
       const vm = await vmProvider(ctx);
       const script = buildProcessSignalScript(params as ProcessSignalParams);
       const result = await vm.exec(["/bin/bash", "-lc", script], { signal });
@@ -304,7 +319,10 @@ export function createProcessSignalTool(
         throw new Error(output || `process_signal failed (${result.exitCode})`);
       }
 
-      return { content: [{ type: "text", text: output || "(no output)" }] };
+      return {
+        content: [{ type: "text", text: output || "(no output)" }],
+        details: undefined,
+      };
     },
   };
 }

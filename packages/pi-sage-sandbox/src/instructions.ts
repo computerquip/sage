@@ -17,12 +17,21 @@ modified until they intentionally bring your branch back with the host-side
 
 - Treat \`${guestWorkspace}\` as the current project workspace. It is mounted
   from the host path \`${hostWorkspace}\`.
+- Treat \`/scratch\` as the session scratch area. Use it for temporary files,
+  extracted archives, logs, generated fixtures, downloads, and bulky
+  intermediates that should not be merged back.
 - Read, write, edit, bash, and user \`!\` commands execute inside a Gondolin
   QEMU VM, not directly on the host.
 - Changes under \`${guestWorkspace}\` persist because they write through to the
-  Sage worktree. VM-local state outside the mounted workspace, including
-  \`/root\`, \`/tmp\`, package caches, background processes, and service state,
-  is ephemeral and should not be treated as deliverable output.
+  Sage worktree.
+- Changes under \`/scratch\` persist in a per-session host-backed scratch
+  directory and are deleted by \`sage remove\`.
+- VM-local state outside the mounted workspace, including \`/root\`, \`/tmp\`,
+  package caches, background processes, and service state, is checkpointed when
+  the Sage session exits and restored on reattach when checkpointing is enabled.
+  Treat that state as session-local convenience only: it is deleted when the
+  Sage worktree/session is removed, and deliverable output still belongs under
+  \`${guestWorkspace}\`.
 - Network egress is host-mediated. HTTP/HTTPS is available according to Sage's
   allowlist. SSH git only works when the host provided a valid ssh-agent socket
   and the destination host is allowed.
@@ -31,11 +40,13 @@ modified until they intentionally bring your branch back with the host-side
 
 Sage routing takes precedence when package guidance overlaps. Use VM-backed
 \`read\` / \`edit\` / \`write\` / \`bash\` for exact bytes, mutations, builds,
-tests, and shell side effects. Sage tools are intentionally bounded and
-structured so local workspace exploration does not depend on host-side context
-execution packages. Large VM tool outputs may be stored in Sage's local context
-sidecar; use \`context_search\`, \`context_get\`, and \`context_export\` to
-retrieve those artifacts without flooding the conversation.
+tests, and shell side effects. Their tool descriptions are Sage-specific: when
+the tool picker says a tool runs in the Sage VM, treat that as authoritative.
+Sage tools are intentionally bounded and structured so local workspace
+exploration does not depend on host-side context execution packages. Large VM
+tool outputs may be stored in Sage's local context sidecar; use
+\`context_search\`, \`context_get\`, and \`context_export\` to retrieve those
+artifacts without flooding the conversation.
 
 Choose the smallest tool that answers the question without flooding context:
 
@@ -45,6 +56,7 @@ Choose the smallest tool that answers the question without flooding context:
 | Search file contents | \`content_search\` |
 | Read exact file text for quoting or editing | \`read\` |
 | Modify files | \`edit\` or \`write\` |
+| Store temporary or bulky session files | \`/scratch\` via \`write\`, \`edit\`, or \`bash\` |
 | Run builds, tests, git, package managers, or shell commands | \`bash\` |
 | Search a stored large tool output artifact | \`context_search\` |
 | Retrieve a focused chunk from a stored artifact | \`context_get\` |
@@ -58,7 +70,8 @@ Execution environments:
 - VM-backed tools: \`read\`, \`write\`, \`edit\`, \`bash\`, user \`!\`,
   \`file_search\`, \`content_search\`, \`process_list\`, and
   \`process_signal\`. Use these for file access, mutations, commands, tests,
-  builds, and process inspection.
+  builds, and process inspection. File tools are allowed under \`${guestWorkspace}\`
+  and \`/scratch\`; use shell commands for other VM-local paths.
 - Host-side Pi package tools: \`context_search\`, \`context_get\`,
   \`context_export\`, \`context_list\`, \`context_stats\`, \`context_purge\`,
   \`web_search\`, and \`fetch_content\`. The \`context_*\` tools are an artifact

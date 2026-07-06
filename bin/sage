@@ -161,6 +161,72 @@ default_image_dir() {
   fi
 }
 
+default_cache_dir() {
+  if [ -n "${SAGE_CACHE_DIR:-}" ]; then
+    printf '%s\n' "$SAGE_CACHE_DIR"
+  elif [ -n "${XDG_CACHE_HOME:-}" ]; then
+    printf '%s\n' "$XDG_CACHE_HOME/sage"
+  elif [ -n "${HOME:-}" ]; then
+    printf '%s\n' "$HOME/.cache/sage"
+  else
+    printf '%s\n' "$SAGE_HOME/.cache"
+  fi
+}
+
+safe_session_id() {
+  printf '%s\n' "$1" | sed 's/[^A-Za-z0-9._-]/-/g'
+}
+
+env_truthy() {
+  case "$1" in
+    1|true|TRUE|yes|YES)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+session_checkpoint_path() {
+  name="$1"
+
+  if env_truthy "${SAGE_VM_CHECKPOINT_DISABLE:-}"; then
+    return
+  fi
+
+  if [ -n "${SAGE_VM_CHECKPOINT:-}" ]; then
+    printf '%s\n' "$SAGE_VM_CHECKPOINT"
+    return
+  fi
+
+  checkpoint_dir="${SAGE_VM_CHECKPOINT_DIR:-$(default_cache_dir)/vm-checkpoints}"
+  printf '%s/%s.qcow2\n' "$checkpoint_dir" "$(safe_session_id "$name")"
+}
+
+session_scratch_dir() {
+  name="$1"
+
+  if [ -n "${SAGE_SCRATCH_DIR:-}" ]; then
+    printf '%s\n' "$SAGE_SCRATCH_DIR"
+    return
+  fi
+
+  scratch_dir="${SAGE_SCRATCH_ROOT:-$(default_cache_dir)/scratch}"
+  printf '%s/%s\n' "$scratch_dir" "$(safe_session_id "$name")"
+}
+
+session_auto_scratch_dir() {
+  name="$1"
+
+  if [ -n "${SAGE_SCRATCH_DIR:-}" ]; then
+    return
+  fi
+
+  scratch_dir="${SAGE_SCRATCH_ROOT:-$(default_cache_dir)/scratch}"
+  printf '%s/%s\n' "$scratch_dir" "$(safe_session_id "$name")"
+}
+
 need_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
     echo "sage: required command not found on PATH: $1" >&2
@@ -232,6 +298,11 @@ Environment:
   SAGE_QEMU_APPEND         QEMU kernel cmdline override
   SAGE_VM_CPUS             VM vCPU count; default is 1
   SAGE_VM_MEMORY           VM memory size; default is 1G
+  SAGE_VM_CHECKPOINT       explicit per-session VM checkpoint path
+  SAGE_VM_CHECKPOINT_DIR   checkpoint directory; default is cache/vm-checkpoints
+  SAGE_VM_CHECKPOINT_DISABLE disable VM checkpoint/resume when set
+  SAGE_SCRATCH_DIR         explicit host directory mounted at /scratch
+  SAGE_SCRATCH_ROOT        scratch root; default is cache/scratch
   SAGE_BASE_REF            base ref for sage diff; default is current branch
   SAGE_GIT_REMOTE          remote for sage push; default is origin
   SAGE_RELEASE_REPO        GitHub repo for image releases; default computerquip/sage
@@ -614,6 +685,17 @@ remove_session() {
 
   echo "sage: removing ${name:-$target} (${pane_id:-unknown}, workspace $workspace_id)" >&2
   "$HERDR" worktree remove --workspace "$workspace_id" --force --json >/dev/null
+  checkpoint_path=$(session_checkpoint_path "$name")
+  if [ -n "$checkpoint_path" ]; then
+    rm -f "$checkpoint_path"
+    checkpoint_dir=$(dirname "$checkpoint_path")
+    checkpoint_file=$(basename "$checkpoint_path")
+    find "$checkpoint_dir" -maxdepth 1 -type f -name "$checkpoint_file.failed-*" -exec rm -f {} + 2>/dev/null || true
+  fi
+  scratch_dir=$(session_auto_scratch_dir "$name")
+  if [ -n "$scratch_dir" ]; then
+    rm -rf "$scratch_dir"
+  fi
   echo "sage: removed workspace $workspace_id"
 }
 
@@ -632,7 +714,8 @@ start_agent() {
   ws_id="$1"
   wt_path="$2"
   agent_name="$3"
-  shift 3
+  session_branch="$4"
+  shift 4
 
   has_provider=false
   for arg in "$@"; do
@@ -646,12 +729,41 @@ start_agent() {
     set -- --provider openai-codex "$@"
   fi
 
+  checkpoint_path=$(session_checkpoint_path "$agent_name")
+  scratch_dir=$(session_scratch_dir "$agent_name")
+
   set +e
-  if [ -n "${SSH_AUTH_SOCK:-}" ]; then
-    AGENT_JSON=$("$HERDR" agent start "$agent_name" --workspace "$ws_id" --cwd "$wt_path" --env "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" -- "$SAGE_HOME/bin/sage" __agent "$@")
+  if [ -n "$checkpoint_path" ] && [ -n "${SSH_AUTH_SOCK:-}" ]; then
+    AGENT_JSON=$("$HERDR" agent start "$agent_name" --workspace "$ws_id" --cwd "$wt_path" \
+      --env "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" \
+      --env "SAGE_SESSION_NAME=$agent_name" \
+      --env "SAGE_SESSION_BRANCH=$session_branch" \
+      --env "SAGE_VM_CHECKPOINT=$checkpoint_path" \
+      --env "SAGE_SCRATCH_DIR=$scratch_dir" \
+      -- "$SAGE_HOME/bin/sage" __agent "$@")
+    AGENT_STATUS=$?
+  elif [ -n "$checkpoint_path" ]; then
+    AGENT_JSON=$("$HERDR" agent start "$agent_name" --workspace "$ws_id" --cwd "$wt_path" \
+      --env "SAGE_SESSION_NAME=$agent_name" \
+      --env "SAGE_SESSION_BRANCH=$session_branch" \
+      --env "SAGE_VM_CHECKPOINT=$checkpoint_path" \
+      --env "SAGE_SCRATCH_DIR=$scratch_dir" \
+      -- "$SAGE_HOME/bin/sage" __agent "$@")
+    AGENT_STATUS=$?
+  elif [ -n "${SSH_AUTH_SOCK:-}" ]; then
+    AGENT_JSON=$("$HERDR" agent start "$agent_name" --workspace "$ws_id" --cwd "$wt_path" \
+      --env "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" \
+      --env "SAGE_SESSION_NAME=$agent_name" \
+      --env "SAGE_SESSION_BRANCH=$session_branch" \
+      --env "SAGE_SCRATCH_DIR=$scratch_dir" \
+      -- "$SAGE_HOME/bin/sage" __agent "$@")
     AGENT_STATUS=$?
   else
-    AGENT_JSON=$("$HERDR" agent start "$agent_name" --workspace "$ws_id" --cwd "$wt_path" -- "$SAGE_HOME/bin/sage" __agent "$@")
+    AGENT_JSON=$("$HERDR" agent start "$agent_name" --workspace "$ws_id" --cwd "$wt_path" \
+      --env "SAGE_SESSION_NAME=$agent_name" \
+      --env "SAGE_SESSION_BRANCH=$session_branch" \
+      --env "SAGE_SCRATCH_DIR=$scratch_dir" \
+      -- "$SAGE_HOME/bin/sage" __agent "$@")
     AGENT_STATUS=$?
   fi
   set -e
@@ -715,9 +827,9 @@ resume_session() {
   fi
 
   if has_session_arg "$@"; then
-    start_agent "$ws_id" "$wt_path" "$name" "$@"
+    start_agent "$ws_id" "$wt_path" "$name" "$branch" "$@"
   else
-    start_agent "$ws_id" "$wt_path" "$name" --continue "$@"
+    start_agent "$ws_id" "$wt_path" "$name" "$branch" --continue "$@"
   fi
 
   if [ "$NO_ATTACH" = false ] && [ -n "${PANE_ID:-}" ]; then
@@ -938,7 +1050,7 @@ fi
 
 echo "sage: launching sandboxed pi agent in workspace $WS_ID" >&2
 
-start_agent "$WS_ID" "$WT_PATH" "$AGENT_NAME" "$@"
+start_agent "$WS_ID" "$WT_PATH" "$AGENT_NAME" "$BRANCH" "$@"
 
 if [ "$NO_ATTACH" = false ] && [ -n "${PANE_ID:-}" ]; then
   echo "sage: attaching to $PANE_ID" >&2

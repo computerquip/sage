@@ -7,7 +7,7 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import type { VM } from "@earendil-works/gondolin";
 
-import { GUEST_WORKSPACE } from "./config.js";
+import { GUEST_SCRATCH, GUEST_WORKSPACE } from "./config.js";
 import { shQuote, toGuestPath } from "./paths.js";
 
 type FileSearchParams = {
@@ -38,7 +38,7 @@ const fileSearchParameters = {
     path: {
       type: "string",
       description:
-        "Workspace path to inspect. Defaults to /workspace. Relative paths are resolved under /workspace.",
+        "Workspace or scratch path to inspect. Defaults to /workspace. Relative paths are resolved under /workspace. Use /scratch for session scratch files.",
     },
     query: {
       type: "string",
@@ -117,6 +117,7 @@ function buildFileSearchScript(
   }
 
   const basePath = resolveGuestBasePath(localCwd, params.path);
+  const searchBase = guestSearchBase(basePath);
   const maxDepth = clampNumber(
     params.maxDepth,
     DEFAULT_TREE_DEPTH,
@@ -135,7 +136,7 @@ function buildFileSearchScript(
       ? [
           "sage-fff",
           "--base",
-          GUEST_WORKSPACE,
+          searchBase,
           "tree",
           "--path",
           basePath,
@@ -150,12 +151,12 @@ function buildFileSearchScript(
       : [
           "sage-fff",
           "--base",
-          GUEST_WORKSPACE,
+          searchBase,
           "find",
           "--query",
           query,
           "--path",
-          guestConstraintPath(localCwd, params.path),
+          guestConstraintPath(localCwd, params.path, searchBase),
           "--mode",
           findMode(params),
           "--limit",
@@ -182,13 +183,22 @@ function findMode(params: FileSearchParams): string {
 export function guestConstraintPath(
   localCwd: string,
   rawPath: string | undefined,
+  searchBase?: string,
 ) {
   const guestPath = resolveGuestBasePath(localCwd, rawPath);
-  if (guestPath === GUEST_WORKSPACE) return ".";
-  if (guestPath.startsWith(`${GUEST_WORKSPACE}/`)) {
-    return guestPath.slice(GUEST_WORKSPACE.length + 1);
+  const base = searchBase ?? guestSearchBase(guestPath);
+  if (guestPath === base) return ".";
+  if (guestPath.startsWith(`${base}/`)) {
+    return guestPath.slice(base.length + 1);
   }
   return guestPath;
+}
+
+function guestSearchBase(guestPath: string): string {
+  if (guestPath === GUEST_SCRATCH || guestPath.startsWith(`${GUEST_SCRATCH}/`)) {
+    return GUEST_SCRATCH;
+  }
+  return GUEST_WORKSPACE;
 }
 
 export function createFileSearchTool(
@@ -199,17 +209,24 @@ export function createFileSearchTool(
     name: "file_search",
     label: "file_search",
     description:
-      "Search workspace file paths or return a bounded directory tree through the Sage VM. Results are structured JSON.",
+      "Search /workspace or /scratch file paths, or return a bounded directory tree through the Sage VM. Results are structured JSON.",
     promptSnippet:
-      "Search workspace paths and inspect bounded directory trees without using host file tools.",
+      "Search /workspace or /scratch paths and inspect bounded directory trees without using host file tools.",
     promptGuidelines: [
       "Use mode=tree to inspect project layout before reading files.",
       "Use mode=search to find filenames or directories with FFF fuzzy search or glob search.",
+      "Use path=/scratch to inspect session scratch artifacts.",
       "Keep maxDepth and maxResults bounded; use follow-up searches for narrower areas.",
     ],
     parameters: fileSearchParameters as any,
     executionMode: "parallel",
-    async execute(_id, params, signal, _onUpdate, ctx): Promise<AgentToolResult> {
+    async execute(
+      _id,
+      params,
+      signal,
+      _onUpdate,
+      ctx,
+    ): Promise<AgentToolResult<undefined>> {
       const vm = await vmProvider(ctx);
       const script = buildFileSearchScript(localCwd, params as FileSearchParams);
       const result = await vm.exec(["/bin/bash", "-lc", script], { signal });
@@ -219,7 +236,10 @@ export function createFileSearchTool(
         throw new Error(output || `file_search failed (${result.exitCode})`);
       }
 
-      return { content: [{ type: "text", text: output || "(no output)" }] };
+      return {
+        content: [{ type: "text", text: output || "(no output)" }],
+        details: undefined,
+      };
     },
   };
 }

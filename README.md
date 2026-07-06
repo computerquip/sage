@@ -1,7 +1,7 @@
 # sage
 
 herdr manages sandboxed agent sessions; each session runs `pi` on the host
-with read/write/edit/bash/`!` tool calls routed into a disposable
+with read/write/edit/bash/`!` tool calls routed into a checkpointed
 [gondolin](https://gondolin.dev) QEMU VM. Sage also provides `process_list`
 and `process_signal` tools for structured VM process inspection, plus
 VM-backed `file_search` and `content_search` tools for bounded local file
@@ -21,6 +21,13 @@ with `SAGE_CONTEXT_PACKAGE` or `SAGE_WEB_ACCESS_PACKAGE`; set either empty to
 skip installing that package. Because every local filesystem and process action
 executes inside the sandbox, pi can be run fully auto-approved.
 
+Sage mounts two host-backed paths into the VM:
+
+- `/workspace` is the Sage git worktree and contains deliverable work.
+- `/scratch` is a per-session scratch directory for temporary files, extracted
+  archives, generated logs/fixtures, downloads, and bulky intermediates that
+  should not be merged back.
+
 See the design doc for the full rationale, architecture, and network model:
 `~/.local/share/kilo/plans/sage-sandboxed-agent.md`.
 
@@ -34,7 +41,11 @@ Clang/LLVM/lld, CMake, Ninja, Conan, pkgconf, gdb, and autotools/libtool. A
 live `pi` session routes filesystem/shell tool calls, structured file and
 process inspection, and file/content search through the VM. Web discovery and
 content extraction are provided by `pi-web-access`. Large text tool outputs are
-stored and retrieved through `@spences10/pi-context`.
+stored and retrieved through `@spences10/pi-context`. VM-local state outside
+`/workspace` is saved to a per-session Gondolin disk checkpoint on shutdown and
+restored on reattach; `sage remove` deletes that checkpoint with the worktree.
+Sage also mounts a per-session scratch directory at `/scratch`; `sage remove`
+deletes Sage's automatic scratch directory too.
 
 Known open items (see plan doc "Risks / open questions" for more):
 
@@ -47,11 +58,12 @@ Known open items (see plan doc "Risks / open questions" for more):
   close to a minimal VM on hosts whose QEMU packages do not provide the
   `microvm` machine type.
 - gondolin's built-in rootfs init mounts a fresh `tmpfs` over `/root` (and
-  `/tmp`, `/var/tmp`, `/var/cache`, `/var/log`) on every VM boot for a clean
-  ephemeral home per session. Anything baked into `/root` during
-  `image/build.sh` (e.g. a `rustup`-installed toolchain under
-  `/root/.cargo`) is invisible at runtime. Install language toolchains via
-  apk packages instead (see `rust`/`cargo` in `build-config.json`) or point
+  `/tmp`, `/var/tmp`, `/var/cache`, `/var/log`) when a brand-new VM boots.
+  Sage reattach resumes from a per-session disk checkpoint, so VM-local state
+  can survive within that Sage session. Anything baked into `/root` during
+  `image/build.sh` (e.g. a `rustup`-installed toolchain under `/root/.cargo`)
+  is still invisible at first runtime. Install language toolchains via apk
+  packages instead (see `rust`/`cargo` in `build-config.json`) or point
   `CARGO_HOME`/`RUSTUP_HOME` outside `/root`.
 - `image/build.sh` uses Gondolin's Podman container build path so
   `postBuild.commands` can run without `sudo`. Rootless Podman must be usable
@@ -161,8 +173,9 @@ sage/
    ```
 
    This creates a Herdr worktree on a `sage/<timestamp>` branch, starts a
-   sandboxed pi agent inside that worktree, boots a gondolin VM, mounts the
-   worktree read-write at `/workspace`, and routes pi tools into the VM.
+   sandboxed pi agent inside that worktree, boots or resumes a gondolin VM,
+   mounts the worktree read-write at `/workspace`, mounts session scratch at
+   `/scratch`, and routes pi tools into the VM.
 
 6. List, attach, resume, or remove Sage sessions:
 
@@ -257,6 +270,32 @@ Env vars (all optional):
   `console=ttyS0 panic=1 reboot=k pci=lastbus=0`).
 - `SAGE_VM_CPUS` — VM vCPU count (default `1`).
 - `SAGE_VM_MEMORY` — Gondolin VM memory size (default `1G`).
+- `SAGE_VM_CHECKPOINT` — explicit per-session Gondolin checkpoint path. Sage
+  sets this automatically for sessions it starts.
+- `SAGE_VM_CHECKPOINT_DIR` — directory for automatic per-session checkpoints
+  (default: `${SAGE_CACHE_DIR:-${XDG_CACHE_HOME:-~/.cache}/sage}/vm-checkpoints`).
+- `SAGE_VM_CHECKPOINT_DISABLE` — set to `1`, `true`, or `yes` to disable VM
+  checkpoint/resume.
+- `SAGE_SCRATCH_DIR` — explicit host directory mounted at `/scratch`. Sage does
+  not delete explicit scratch overrides on `sage remove`.
+- `SAGE_SCRATCH_ROOT` — root directory for automatic per-session scratch
+  directories (default:
+  `${SAGE_CACHE_DIR:-${XDG_CACHE_HOME:-~/.cache}/sage}/scratch`).
+
+## Durable memory provider policy
+
+Durable memory is planned but not enabled yet. When implemented, Sage should
+use Pi's active model provider as the default signal, not host environment
+guessing alone.
+
+- OpenAI: use the memory library's native OpenAI LLM and embedding providers.
+- Bedrock: use LangChain's Bedrock integration for the LLM and embedder. Sage
+  should pin the current best Bedrock embedding model and its vector dimension
+  in code/config, then update that pin during normal maintenance as AWS model
+  availability changes.
+- If the provider is ambiguous or unsupported, memory should fail with an
+  actionable configuration error. Do not silently fall back to lower-quality
+  local embeddings or to another commercial provider.
 
 ## Tearing down a session
 
@@ -265,6 +304,8 @@ herdr worktree remove --workspace <workspace_id> [--force]
 ```
 
 This runs `git worktree remove` on the checkout; it never deletes the branch.
+When invoked through `sage remove`, Sage also deletes that session's VM
+checkpoint and its automatic `/scratch` directory.
 
 ## Merging work back
 

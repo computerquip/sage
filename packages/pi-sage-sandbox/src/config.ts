@@ -13,6 +13,16 @@ import os from "node:os";
 import path from "node:path";
 
 export const GUEST_WORKSPACE = "/workspace";
+export const GUEST_SCRATCH = "/scratch";
+
+export function resolveScratchDir(): string | undefined {
+  const configured = process.env.SAGE_SCRATCH_DIR?.trim();
+  if (!configured) return undefined;
+
+  const resolved = path.resolve(configured);
+  fs.mkdirSync(resolved, { recursive: true });
+  return resolved;
+}
 
 /**
  * Directory containing the built gondolin image (manifest.json + kernel +

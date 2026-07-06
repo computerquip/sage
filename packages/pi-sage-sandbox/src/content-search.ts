@@ -5,8 +5,9 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import type { VM } from "@earendil-works/gondolin";
 
+import { GUEST_SCRATCH, GUEST_WORKSPACE } from "./config.js";
 import { shQuote } from "./paths.js";
-import { guestConstraintPath } from "./file-search.js";
+import { guestConstraintPath, resolveGuestBasePath } from "./file-search.js";
 
 type ContentSearchParams = {
   query: string;
@@ -34,7 +35,7 @@ const contentSearchParameters = {
     path: {
       type: "string",
       description:
-        "Workspace path to search. Defaults to /workspace. Relative paths are resolved under /workspace.",
+        "Workspace or scratch path to search. Defaults to /workspace. Relative paths are resolved under /workspace. Use /scratch for session scratch files.",
     },
     match: {
       type: "string",
@@ -98,15 +99,20 @@ function buildContentSearchScript(
     ),
   );
   const contextLines = clampNumber(params.contextLines, 0, MAX_CONTEXT_LINES);
+  const guestPath = resolveGuestBasePath(localCwd, params.path);
+  const searchBase =
+    guestPath === GUEST_SCRATCH || guestPath.startsWith(`${GUEST_SCRATCH}/`)
+      ? GUEST_SCRATCH
+      : GUEST_WORKSPACE;
   const args = [
     "sage-fff",
     "--base",
-    GUEST_WORKSPACE,
+    searchBase,
     "grep",
     "--query",
     query,
     "--path",
-    guestConstraintPath(localCwd, params.path),
+    guestConstraintPath(localCwd, params.path, searchBase),
     "--mode",
     params.match === "regex" ? "regex" : "plain",
     "--limit",
@@ -137,17 +143,24 @@ export function createContentSearchTool(
     name: "content_search",
     label: "content_search",
     description:
-      "Search workspace file contents through the Sage VM. Results are structured JSON with path, line, column, and matched text.",
+      "Search /workspace or /scratch file contents through the Sage VM. Results are structured JSON with path, line, column, and matched text.",
     promptSnippet:
-      "Search file contents without using host-side grep/find tools.",
+      "Search /workspace or /scratch file contents without using host-side grep/find tools.",
     promptGuidelines: [
       "Use content_search for text searches across the workspace or a bounded subdirectory.",
+      "Use path=/scratch to search session scratch artifacts.",
       "Narrow path and maxResults when possible.",
       "Use read after content_search when exact surrounding bytes are needed for editing.",
     ],
     parameters: contentSearchParameters as any,
     executionMode: "parallel",
-    async execute(_id, params, signal, _onUpdate, ctx): Promise<AgentToolResult> {
+    async execute(
+      _id,
+      params,
+      signal,
+      _onUpdate,
+      ctx,
+    ): Promise<AgentToolResult<undefined>> {
       const vm = await vmProvider(ctx);
       const script = buildContentSearchScript(
         localCwd,
@@ -160,7 +173,10 @@ export function createContentSearchTool(
         throw new Error(output || `content_search failed (${result.exitCode})`);
       }
 
-      return { content: [{ type: "text", text: output || "(no output)" }] };
+      return {
+        content: [{ type: "text", text: output || "(no output)" }],
+        details: undefined,
+      };
     },
   };
 }

@@ -7,7 +7,7 @@
 
 import path from "node:path";
 
-import { GUEST_WORKSPACE } from "./config.js";
+import { GUEST_SCRATCH, GUEST_WORKSPACE } from "./config.js";
 
 /** POSIX single-quote shell escaping: wraps in quotes, escapes embedded quotes. */
 export function shQuote(value: string): string {
@@ -19,7 +19,8 @@ export function shQuote(value: string): string {
  * `/workspace`-relative path. Throws if the path escapes the mounted cwd.
  *
  * Also accepts paths that are already guest-style (`/workspace` or
- * `/workspace/...`) and passes them through unchanged. This is required
+ * `/workspace/...`, `/scratch` or `/scratch/...`) and passes them through
+ * unchanged. This is required
  * because `before_agent_start` rewrites the system prompt's "Current
  * working directory" line to say `/workspace`, so models routinely echo
  * that back as an absolute path for tool calls (e.g. `read` with
@@ -31,11 +32,14 @@ export function toGuestPath(localCwd: string, localPath: string): string {
   if (localPath === GUEST_WORKSPACE || localPath.startsWith(GUEST_WORKSPACE + "/")) {
     return localPath;
   }
+  if (localPath === GUEST_SCRATCH || localPath.startsWith(GUEST_SCRATCH + "/")) {
+    return localPath;
+  }
 
   const rel = path.relative(localCwd, localPath);
   if (rel === "") return GUEST_WORKSPACE;
   if (rel.startsWith("..") || path.isAbsolute(rel)) {
-    throw new Error(`path escapes workspace: ${localPath}`);
+    throw new Error(`path escapes workspace or scratch: ${localPath}`);
   }
   // Convert platform separators to POSIX for the Linux guest.
   const posixRel = rel.split(path.sep).join(path.posix.sep);

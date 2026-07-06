@@ -14,10 +14,19 @@ architecture.
   Gondolin QEMU VM.
 - The guest sees the project at `/workspace`. That is a mount of the host Sage
   worktree path. Edits under `/workspace` persist to the worktree; VM-local
-  state outside the mount is ephemeral.
+  state outside the mount is checkpointed on session shutdown and restored on
+  reattach when checkpointing is enabled.
+- The guest also sees a per-session host-backed scratch directory at
+  `/scratch`. Use it for temporary files, extracted archives, logs, downloads,
+  generated fixtures, and bulky intermediates that should not be merged back.
+  `sage remove` deletes Sage's automatic scratch directory.
 - Sage intentionally uses Gondolin's QEMU backend with `q35`, KVM, host CPU, 1
   vCPU, and `1G` memory by default. Avoid reintroducing krun unless the user
   explicitly asks for a new experiment.
+- Sage uses one Gondolin disk checkpoint per Sage session by default. The
+  checkpoint path is passed as `SAGE_VM_CHECKPOINT`, defaults under
+  `${SAGE_CACHE_DIR:-${XDG_CACHE_HOME:-~/.cache}/sage}/vm-checkpoints`, is
+  resumed on reattach, and is removed by `sage remove`.
 - `sage-session` and `sage-pi` were deprecated/removed. Do not add them back;
   `sage` and `sage __agent` are the supported entry points.
 
@@ -32,8 +41,8 @@ architecture.
   `pi-web-access` extension/skills by path. Do not re-enable global package
   discovery to pick up these tools; that can reintroduce unrelated host-side
   packages.
-- `packages/pi-sage-sandbox/src/config.ts`: image path, QEMU options, VM memory
-  and CPU defaults, HTTP/SSH egress policy.
+- `packages/pi-sage-sandbox/src/config.ts`: image path, scratch mount path,
+  QEMU options, VM memory and CPU defaults, HTTP/SSH egress policy.
 - `packages/pi-sage-sandbox/src/gondolin-ops.ts`: adapters for pi's filesystem
   and shell tools.
 - `packages/pi-sage-sandbox/src/paths.ts`: host path to `/workspace` mapping.
@@ -80,6 +89,14 @@ branch. It refuses to merge if the user's current checkout is dirty.
   `file_search`, `content_search`, `process_list`, and `process_signal`. Use
   them for exact file bytes, path/tree inspection, content search, mutations,
   shell commands, builds, tests, and VM process inspection.
+- VM-backed file tools intentionally allow only `/workspace` and `/scratch`.
+  `/workspace` is deliverable git work; `/scratch` is session scratch. Use
+  `bash` for other VM-local paths such as `/tmp` or `/root`.
+- The overridden `read`, `write`, `edit`, and `bash` tools carry Sage-specific
+  descriptions/prompt guidance in `packages/pi-sage-sandbox/index.ts`. Keep
+  that metadata aligned with this file and `src/instructions.ts`; tool routing
+  should be obvious from the tool picker itself, not only from the session
+  prompt.
 - Host-side artifact tools are `context_search`, `context_get`,
   `context_export`, `context_list`, `context_stats`, and `context_purge` from
   the explicitly loaded `@spences10/pi-context` package. These are an overflow
@@ -96,8 +113,9 @@ branch. It refuses to merge if the user's current checkout is dirty.
   unless the user explicitly changes the sandboxing model.
 - Use `file_search` for FFF fuzzy path search, glob search, and bounded tree
   inspection. Use `content_search` for local content search. Both execute
-  inside the VM through the guest `sage-fff` binary; cold VM sessions rebuild
-  their in-memory search index on first use.
+  inside the VM through the guest `sage-fff` binary and can search either
+  `/workspace` or `/scratch`; cold VM sessions rebuild their in-memory search
+  index on first use.
 - Sage registers `@spences10/pi-context` for artifact sidecar tooling. Large
   text outputs from VM tools can be stored in a Sage-scoped SQLite DB. Use
   `context_search` for snippets, `context_get` for focused chunks, and
@@ -109,6 +127,14 @@ branch. It refuses to merge if the user's current checkout is dirty.
   `context_search`, and retrieved by `context_get` with neighboring chunks.
 - Sage registers `pi-web-access` for web tooling. Use `web_search` for URL
   discovery/current information and `fetch_content` for exact page contents.
+- Durable memory is not implemented yet. When it is added, keep provider
+  selection explicit and fail closed. Use Pi's `ExtensionContext.model` as the
+  default provider signal when `SAGE_MEMORY_PROVIDER` is unset. For OpenAI, use
+  Mem0's native OpenAI LLM/embedder providers. For Bedrock, use Mem0's
+  LangChain provider with `@langchain/aws`; Sage should maintain a pinned
+  current best Bedrock embedding model/dimension in its own config instead of
+  silently falling back to a local or OpenAI embedder. If both OpenAI and
+  Bedrock are plausible, require `SAGE_MEMORY_PROVIDER`.
 - Prefer `read` when exact file text is needed for quoting or editing. Prefer
   `file_search` and `content_search` for bounded local exploration before
   reading large files. Actual edits still use `read` plus `edit`/`write`.
@@ -117,8 +143,12 @@ branch. It refuses to merge if the user's current checkout is dirty.
 - SSH git egress only works when the host has a valid `SSH_AUTH_SOCK` and the
   destination is in `SAGE_SSH_HOSTS` (default `github.com`). If no host
   `SSH_AUTH_SOCK` exists, that is not a Sage bug; SSH git is simply disabled.
-- Do not assume `/root`, `/tmp`, package caches, background services, or other
-  VM-local state will survive. Deliverable work belongs under `/workspace`.
+- `/root`, `/tmp`, package caches, background services, and other VM-local state
+  should survive stop/reattach through the per-session checkpoint. Still treat
+  that state as disposable session-local convenience: `sage remove` deletes it,
+  and deliverable work belongs under `/workspace`.
+- Use `/scratch` instead of `/tmp` when the agent needs a real file-tool-visible
+  temp directory or a host-backed session artifact area.
 
 ## Validation
 
@@ -130,12 +160,12 @@ sh -n bin/sage
 ./bin/sage install-pi-packages
 node --check packages/pi-sage-sandbox/index.ts
 node --check packages/pi-sage-sandbox/src/instructions.ts
+pnpm exec tsc -p packages/pi-sage-sandbox/tsconfig.json
 git diff --check
 ```
 
-The workspace has not consistently had `typescript` installed, so `pnpm exec
-tsc -p packages/pi-sage-sandbox/tsconfig.json` may fail with `tsc` missing.
-Use it when available, but do not assume it exists.
+`typescript` and `@types/node` are root dev dependencies, so the TypeScript
+check should work after `pnpm install`.
 
 The host has also not consistently had Rust installed. `tools/sage-fff` is
 compiled by `tools/sage-fff/build-alpine.sh` in an Alpine container before
