@@ -264,6 +264,8 @@ Env vars (all optional):
   `fast-bge-small-en-v1.5`, also accepted as `BAAI/bge-small-en-v1.5`).
 - `SAGE_MEMORY_EMBED_DIMENSION` — local embedding dimension (default: `384`;
   must match the configured model).
+- `SAGE_MEMORY_LLM_MAX_TOKENS` — maximum output tokens for `memory_add
+  infer=true` extraction calls through the selected Pi model (default: `2048`).
 - `SAGE_WEB_ACCESS_PACKAGE` — Pi package source for web tools (default
   `npm:pi-web-access@0.13.0`; empty skips `sage install-pi-packages`).
 - `SAGE_WEB_ACCESS_EXTENSION` — explicit `pi-web-access` extension path
@@ -314,10 +316,10 @@ that, embedding is local CPU inference. Set `SAGE_MEMORY_EMBED_MODEL` and
 
 Normal `memory_add` calls store exactly the provided fact with `infer=false`,
 so no hosted model entitlement is required and no chat model is pulled.
-`memory_add infer=true` is intentionally disabled until Sage has a local LLM
-policy for memory extraction. Durable memory should fail loudly when the local
-embedder or configured model is unavailable rather than falling back to hosted
-embeddings.
+`memory_add infer=true` uses Pi's currently selected chat model through Pi's
+provider/auth routing, including OAuth, API keys, Bedrock, and custom providers.
+Durable memory should fail loudly when the local embedder, selected Pi model, or
+provider auth is unavailable rather than falling back to hosted embeddings.
 
 ## Tearing down a session
 

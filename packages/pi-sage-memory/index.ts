@@ -3,6 +3,8 @@ import type {
   ExtensionAPI,
   ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
+import type { Api, Context, Model } from "@earendil-works/pi-ai/compat";
+import { completeSimple } from "@earendil-works/pi-ai/compat";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -34,6 +36,19 @@ type LangchainEmbeddingsLike = {
   batchSize: number;
   embedQuery(text: string): Promise<number[]>;
   embedDocuments(texts: string[]): Promise<number[][]>;
+};
+
+type LangchainMessageLike = {
+  role?: string;
+  content?: unknown;
+  _getType?: () => string;
+};
+
+type LangchainModelLike = {
+  modelId: string;
+  invoke(messages: LangchainMessageLike[], options?: Record<string, unknown>): Promise<{
+    content: string;
+  }>;
 };
 
 type FastEmbedRuntime = {
@@ -110,12 +125,19 @@ function searchFilters(scope: Scope | undefined) {
   };
 }
 
-function runtimeCacheKey(): string {
+function modelCacheKey(ctx?: ExtensionContext): string {
+  const model = ctx?.model;
+  if (!model) return "none";
+  return `${model.provider}/${model.id}/${model.api}`;
+}
+
+function runtimeCacheKey(ctx?: ExtensionContext): string {
   return JSON.stringify({
     memoryDir: memoryDir(),
     embedModel: env("SAGE_MEMORY_EMBED_MODEL"),
     embedDimension: env("SAGE_MEMORY_EMBED_DIMENSION"),
     fastEmbedCacheDir: fastEmbedCacheDir(),
+    model: modelCacheKey(ctx),
   });
 }
 
@@ -163,13 +185,111 @@ function memoryDetails(): MemoryDetails {
   };
 }
 
-function disabledInferenceModel() {
+function langchainRole(message: LangchainMessageLike): "system" | "user" | "assistant" {
+  const role = message.role ?? message._getType?.() ?? "user";
+  switch (role.toLowerCase()) {
+    case "system":
+      return "system";
+    case "assistant":
+    case "ai":
+      return "assistant";
+    case "human":
+    case "user":
+    default:
+      return "user";
+  }
+}
+
+function langchainContent(message: LangchainMessageLike): string {
+  const content = message.content;
+  if (typeof content === "string") return content;
+  if (content == null) return "";
+  return JSON.stringify(content);
+}
+
+function piContextFromLangchain(messages: LangchainMessageLike[]): Context {
+  let systemPrompt: string | undefined;
+  const piMessages: Context["messages"] = [];
+
+  for (const message of messages) {
+    const role = langchainRole(message);
+    const content = langchainContent(message);
+    if (role === "system") {
+      systemPrompt = systemPrompt ? `${systemPrompt}\n\n${content}` : content;
+      continue;
+    }
+    if (role === "assistant") {
+      piMessages.push({
+        role: "assistant",
+        content: [{ type: "text", text: content }],
+        api: "openai-completions",
+        provider: "sage-memory",
+        model: "previous-assistant",
+        usage: {
+          input: 0,
+          output: 0,
+          cacheRead: 0,
+          cacheWrite: 0,
+          totalTokens: 0,
+          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+        },
+        stopReason: "stop",
+        timestamp: Date.now(),
+      });
+      continue;
+    }
+    piMessages.push({ role: "user", content, timestamp: Date.now() });
+  }
+
+  return { systemPrompt, messages: piMessages };
+}
+
+function assistantText(message: Awaited<ReturnType<typeof completeSimple>>): string {
+  const parts = message.content
+    .filter((part) => part.type === "text")
+    .map((part) => part.text);
+  return parts.join("");
+}
+
+async function resolvePiModelAuth(ctx: ExtensionContext, model: Model<Api>) {
+  const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
+  if (!auth.ok) {
+    throw new Error(`Cannot use ${model.provider}/${model.id} for memory inference: ${auth.error}`);
+  }
+  return auth;
+}
+
+async function preflightInferenceModel(ctx?: ExtensionContext): Promise<Model<Api>> {
+  const model = ctx?.model as Model<Api> | undefined;
+  if (!ctx || !model) {
+    throw new Error("memory_add infer=true requires an active Pi model.");
+  }
+  await resolvePiModelAuth(ctx, model);
+  return model;
+}
+
+function piLangchainModel(ctx?: ExtensionContext): LangchainModelLike {
+  const modelName = ctx?.model ? `${ctx.model.provider}/${ctx.model.id}` : "no-active-model";
   return {
-    modelId: "sage-memory-inference-disabled",
-    async invoke() {
-      throw new Error(
-        "memory_add infer=true is disabled in Sage memory. Store exact facts with infer=false.",
-      );
+    modelId: `sage-memory/${modelName}`,
+    async invoke(messages, options = {}) {
+      const model = await preflightInferenceModel(ctx);
+      const auth = await resolvePiModelAuth(ctx!, model);
+      const responseFormat = options.response_format
+        ? { response_format: options.response_format }
+        : {};
+      const response = await completeSimple(model, piContextFromLangchain(messages), {
+        apiKey: auth.apiKey,
+        headers: auth.headers,
+        env: auth.env,
+        signal: ctx?.signal,
+        maxTokens: numberEnv("SAGE_MEMORY_LLM_MAX_TOKENS", 2048),
+        ...responseFormat,
+      } as any);
+      if (response.stopReason === "error" || response.stopReason === "aborted") {
+        throw new Error(response.errorMessage ?? `Pi model ${model.provider}/${model.id} failed.`);
+      }
+      return { content: assistantText(response) };
     },
   };
 }
@@ -219,7 +339,7 @@ function fastEmbedLangchainModel(details: MemoryDetails): LangchainEmbeddingsLik
   };
 }
 
-async function createRuntime(): Promise<MemoryRuntime> {
+async function createRuntime(ctx?: ExtensionContext): Promise<MemoryRuntime> {
   const { Memory } = await import("mem0ai/oss");
   const details = memoryDetails();
   fs.mkdirSync(path.dirname(details.dbPath), { recursive: true });
@@ -243,7 +363,7 @@ async function createRuntime(): Promise<MemoryRuntime> {
     llm: {
       provider: "langchain",
       config: {
-        model: disabledInferenceModel(),
+        model: piLangchainModel(ctx),
       },
     },
     historyStore: {
@@ -262,9 +382,9 @@ async function getRuntime(_ctx?: ExtensionContext): Promise<MemoryRuntime> {
   if (boolEnv("SAGE_MEMORY_DISABLE")) {
     throw new Error("Sage durable memory is disabled by SAGE_MEMORY_DISABLE.");
   }
-  const key = runtimeCacheKey();
+  const key = runtimeCacheKey(_ctx);
   if (!runtime || runtimeKey !== key) {
-    runtime = await createRuntime();
+    runtime = await createRuntime(_ctx);
     runtimeKey = key;
   }
   return runtime;
@@ -307,19 +427,22 @@ export default function (pi: ExtensionAPI) {
       properties: {},
       additionalProperties: false,
     } as any,
-    async execute(_toolCallId, _params, _signal, _onUpdate, _ctx) {
+    async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
       try {
         if (boolEnv("SAGE_MEMORY_DISABLE")) {
           throw new Error("Sage durable memory is disabled by SAGE_MEMORY_DISABLE.");
         }
         const details = memoryDetails();
         const scope = memoryScope(undefined);
+        const model = ctx?.model
+          ? `${ctx.model.provider}/${ctx.model.id}`
+          : "none selected";
         return ok(
           [
             "provider: local",
             `embedder: fastembed/${details.embedModel}`,
             `dimension: ${details.dimension}`,
-            "llm: disabled (memory_add stores exact facts with infer=false)",
+            `llm: ${model} (for memory_add infer=true)`,
             `vector_db: ${details.dbPath}`,
             `history_db: ${details.historyDbPath}`,
             `model_cache: ${details.fastEmbedCacheDir}`,
@@ -372,9 +495,13 @@ export default function (pi: ExtensionAPI) {
       try {
         const rt = await getRuntime(ctx);
         const scope = (params.scope ?? "global") as Scope;
+        const infer = params.infer ?? false;
+        if (infer) {
+          await preflightInferenceModel(ctx);
+        }
         const result = await rt.memory.add(params.text, {
           ...memoryScope(scope),
-          infer: params.infer ?? false,
+          infer,
           metadata: params.metadata,
         });
         return ok(formatResults(result.results), result);

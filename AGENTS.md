@@ -144,9 +144,11 @@ branch. It refuses to merge if the user's current checkout is dirty.
   384 dimensions; if changing it, update `SAGE_MEMORY_EMBED_MODEL` and
   `SAGE_MEMORY_EMBED_DIMENSION` together. Normal `memory_add` uses
   `infer=false` and stores the supplied fact directly. `memory_add infer=true`
-  is intentionally disabled until Sage has a local LLM policy for memory
-  extraction. Do not add hosted embedding fallbacks; fail loudly when
-  FastEmbed or the local model is unavailable.
+  uses Pi's currently selected model through `ctx.model` and
+  `ctx.modelRegistry.getApiKeyAndHeaders()`, so OAuth/API-key/custom provider
+  routing remains owned by Pi. `SAGE_MEMORY_LLM_MAX_TOKENS` bounds inferred
+  memory extraction output. Do not add hosted embedding fallbacks; fail loudly
+  when FastEmbed, the selected Pi model, or provider auth is unavailable.
 - The FastEmbed model is downloaded on first use into
   `SAGE_MEMORY_FASTEMBED_CACHE_DIR` (default under the Sage cache directory).
   First-use `memory_add`/`memory_search` therefore needs network access unless

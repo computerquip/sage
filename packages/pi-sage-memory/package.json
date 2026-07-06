@@ -6,6 +6,7 @@
   "type": "module",
   "main": "index.ts",
   "dependencies": {
+    "@earendil-works/pi-ai": "^0.80.3",
     "@earendil-works/pi-coding-agent": "^0.80.3",
     "better-sqlite3": "^12.11.1",
     "fastembed": "^2.1.0",

@@ -93,10 +93,10 @@ Execution environments:
   tools are provided by \`pi-web-access\`.
 - Durable memory embeddings are local-only through FastEmbed via Mem0's
   \`langchain\` embedder adapter. Normal \`memory_add\` stores the supplied fact
-  directly with \`infer=false\`. \`memory_add infer=true\` is intentionally
-  disabled until Sage has a local LLM policy for memory extraction. If
-  FastEmbed or the configured local model is unavailable, report that directly
-  instead of attempting a hosted embedding fallback.
+  directly with \`infer=false\`. \`memory_add infer=true\` uses Pi's currently
+  selected model through Pi's provider/auth routing. If FastEmbed, the selected
+  Pi model, or provider auth is unavailable, report that directly instead of
+  attempting an embedding or model fallback.
 
 ## Returning Work To The User
 
